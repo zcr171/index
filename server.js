@@ -1,8 +1,15 @@
 const express = require('express');
 const { Sequelize, DataTypes, Op } = require('sequelize');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config(); // 加载环境变量
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 // 启用CORS
 app.use(cors());
@@ -10,39 +17,185 @@ app.use(cors());
 // 解析JSON请求体
 app.use(express.json());
 
-// 连接MySQL
-// 注意：请根据实际情况修改数据库连接参数
-const sequelize = new Sequelize('webtest', 'webuser', 'webuser', {
-  host: '192.168.10.179',
-  dialect: 'mysql',
-  port: 3306,
-  logging: console.log
+// 确保临时目录存在
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// 配置multer文件上传
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 
-// 测试数据库连接
-sequelize.authenticate()
-  .then(() => {
-    console.log('数据库连接成功');
-  })
-  .catch(err => {
-    console.error('数据库连接失败:', err);
-  });
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    // 只接受CSV文件
+    if (path.extname(file.originalname) === '.csv') {
+      return cb(null, true);
+    }
+    cb(new Error('只支持CSV文件'));
+  }
+});
 
-// 定义设备模型 (从tagval表读取)
-const Device = sequelize.define('Device', {
-  name: {
+// 提供静态文件服务
+app.use(express.static(__dirname));
+
+// 根路径返回前端HTML文件
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/industrial-visualization-system.html');
+});
+
+// 连接MySQL - 主服务器
+// 注意：使用环境变量中的数据库连接参数
+const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
+  host: process.env.DB_HOST,
+  dialect: 'mysql',
+  port: 3306,
+  logging: console.log,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  }
+});
+
+// 备用服务器配置
+const sequelizeBackup = new Sequelize(process.env.DB_BACKUP_NAME, process.env.DB_BACKUP_USER, process.env.DB_BACKUP_PASSWORD, {
+  host: process.env.DB_BACKUP_HOST,
+  dialect: 'mysql',
+  port: 3306,
+  logging: console.log,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  }
+});
+
+// 当前活动的数据库连接
+let activeSequelize = sequelize;
+let isMainServerActive = true;
+
+// 测试数据库连接函数
+async function testDatabaseConnection(connection, serverName) {
+  try {
+    await connection.authenticate();
+    console.log(`${serverName} 数据库连接成功`);
+    return true;
+  } catch (err) {
+    console.error(`${serverName} 数据库连接失败:`, err.message);
+    return false;
+  }
+}
+
+// 切换数据库连接函数
+async function switchDatabaseConnection() {
+  console.log('开始切换数据库连接...');
+  
+  if (isMainServerActive) {
+    // 尝试连接备用服务器
+    const backupConnected = await testDatabaseConnection(sequelizeBackup, '备用服务器');
+    if (backupConnected) {
+      activeSequelize = sequelizeBackup;
+      isMainServerActive = false;
+      console.log('已切换到备用服务器');
+      // 重新同步模型到备用服务器
+      resyncModelsOnSwitch();
+      return true;
+    }
+  } else {
+    // 尝试重新连接主服务器
+    const mainConnected = await testDatabaseConnection(sequelize, '主服务器');
+    if (mainConnected) {
+      activeSequelize = sequelize;
+      isMainServerActive = true;
+      console.log('已切换回主服务器');
+      // 重新同步模型到主服务器
+      resyncModelsOnSwitch();
+      return true;
+    }
+  }
+  
+  console.log('切换数据库连接失败，没有可用的服务器');
+  return false;
+}
+
+// 初始化数据库连接
+async function initializeDatabaseConnection() {
+  console.log('初始化数据库连接...');
+  
+  // 首先尝试连接主服务器
+  const mainConnected = await testDatabaseConnection(sequelize, '主服务器');
+  if (mainConnected) {
+    activeSequelize = sequelize;
+    isMainServerActive = true;
+    console.log('使用主服务器作为活动连接');
+    return;
+  }
+  
+  // 主服务器连接失败，尝试备用服务器
+  console.log('主服务器连接失败，尝试连接备用服务器...');
+  const backupConnected = await testDatabaseConnection(sequelizeBackup, '备用服务器');
+  if (backupConnected) {
+    activeSequelize = sequelizeBackup;
+    isMainServerActive = false;
+    console.log('使用备用服务器作为活动连接');
+    return;
+  }
+  
+  console.error('所有数据库服务器连接失败');
+}
+
+// 定期检查数据库连接状态
+function startConnectionCheck() {
+  setInterval(async () => {
+    console.log('检查数据库连接状态...');
+    const isConnected = await testDatabaseConnection(activeSequelize, isMainServerActive ? '主服务器' : '备用服务器');
+    if (!isConnected) {
+      console.log('当前数据库连接已断开，尝试切换服务器...');
+      await switchDatabaseConnection();
+    }
+  }, 30000); // 每30秒检查一次
+}
+
+// 初始化数据库连接
+initializeDatabaseConnection();
+
+// 启动连接检查
+startConnectionCheck();
+
+// 定义设备模型 (从device_data表读取)
+const Device = activeSequelize.define('Device', {
+  device_no: {
     type: DataTypes.STRING,
     unique: true,
     allowNull: false,
-    comment: '设备位号'
+    comment: '设备号'
   },
-  desc: {
+  description: {
     type: DataTypes.STRING,
     comment: '描述'
   },
-  SI: {
+  unit: {
     type: DataTypes.STRING,
     comment: '单位'
+  },
+  qty_max: {
+    type: DataTypes.FLOAT,
+    comment: '工程量上限'
+  },
+  qty_min: {
+    type: DataTypes.FLOAT,
+    comment: '工程量下限'
   },
   HH: {
     type: DataTypes.FLOAT,
@@ -52,30 +205,78 @@ const Device = sequelize.define('Device', {
     type: DataTypes.FLOAT,
     comment: '高报'
   },
-  LL: {
-    type: DataTypes.FLOAT,
-    comment: '低低报'
-  },
   L: {
     type: DataTypes.FLOAT,
     comment: '低报'
   },
-  VL: {
+  LL: {
     type: DataTypes.FLOAT,
-    comment: '量程下限'
+    comment: '低低报'
   },
-  VH: {
-    type: DataTypes.FLOAT,
-    comment: '量程上限'
+  factory: {
+    type: DataTypes.STRING,
+    comment: '厂区'
+  },
+  level: {
+    type: DataTypes.STRING,
+    comment: '等级'
+  },
+  is_major_hazard: {
+    type: DataTypes.STRING,
+    comment: '是否重大危险源'
+  },
+  is_sis: {
+    type: DataTypes.STRING,
+    comment: '是否SIS系统'
   }
 }, {
-  tableName: 'tagval',
+  tableName: 'device_data',
   timestamps: false,
   primaryKey: false
 });
 
+// 定义用户模型
+const User = activeSequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
+  username: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  role: {
+    type: DataTypes.ENUM('admin', 'operator', 'viewer', 'maint'),
+    allowNull: false
+  },
+  adminLevel: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '行政级别'
+  },
+  permission: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '权限'
+  },
+  factory: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '厂区'
+  }
+}, {
+  tableName: 'users',
+  timestamps: true
+});
+
 // 定义历史数据模型
-const HistoryData = sequelize.define('HistoryData', {
+const HistoryData = activeSequelize.define('HistoryData', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -112,17 +313,290 @@ const HistoryData = sequelize.define('HistoryData', {
 });
 
 // 同步数据库模型
-sequelize.sync({ alter: true })
-  .then(() => {
-    console.log('数据库模型同步成功');
-  })
-  .catch(err => {
-    console.error('数据库模型同步失败:', err);
-  });
+function syncDatabaseModels() {
+  activeSequelize.sync({ alter: true })
+    .then(() => {
+      console.log('数据库模型同步成功');
+    })
+    .catch(err => {
+      console.error('数据库模型同步失败:', err);
+    });
+}
+
+// 初始化时同步模型并创建默认admin用户
+async function initDatabase() {
+  await syncDatabaseModels();
+  
+  // 创建默认admin用户（如果不存在）
+  try {
+    const existingAdmin = await User.findOne({ where: { username: 'admin' } });
+    if (!existingAdmin) {
+      const hashedPassword = bcrypt.hashSync('admin', bcrypt.genSaltSync(10));
+      await User.create({
+        username: 'admin',
+        password: hashedPassword,
+        role: 'admin'
+      });
+      console.log('默认admin用户创建成功');
+    } else {
+      console.log('admin用户已存在');
+    }
+  } catch (error) {
+    console.error('创建默认admin用户失败:', error.message);
+  }
+}
+
+// 初始化数据库
+initDatabase();
+
+// 切换服务器时重新同步模型
+function resyncModelsOnSwitch() {
+  // 在切换服务器后调用此函数
+  syncDatabaseModels();
+}
 
 // 健康检查API
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: '服务运行正常' });
+});
+
+// MySQL服务器状态API
+app.get('/api/mysql/status', async (req, res) => {
+  try {
+    // 检查主服务器状态
+    const primaryStatus = await testDatabaseConnection(sequelize, '主服务器');
+    
+    // 检查备用服务器状态
+    const backupStatus = await testDatabaseConnection(sequelizeBackup, '备用服务器');
+    
+    res.json({
+      success: true,
+      data: {
+        primary: primaryStatus,
+        backup: backupStatus,
+        active: isMainServerActive ? 'primary' : 'backup'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '获取MySQL状态失败',
+      error: error.message
+    });
+  }
+});
+
+// 用户认证API
+
+// 登录验证API
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // 查找用户
+    const user = await User.findOne({ where: { username } });
+    if (!user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: '用户名或密码错误' 
+      });
+    }
+    
+    // 使用bcrypt验证密码
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: '用户名或密码错误' 
+      });
+    }
+    
+    // 生成JWT令牌
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'your_secret_key',
+      { expiresIn: '24h' }
+    );
+    
+    // 返回成功信息
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '登录失败',
+      error: error.message
+    });
+  }
+});
+
+// 注册用户API
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, password, role } = req.body;
+    
+    // 检查用户是否已存在
+    const existingUser = await User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '用户名已存在' 
+      });
+    }
+    
+    // 使用bcrypt加密密码
+    const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+    
+    // 创建用户
+    const user = await User.create({
+      username,
+      password: hashedPassword, // 存储加密后的密码
+      role: role || 'viewer'
+    });
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '注册失败',
+      error: error.message
+    });
+  }
+});
+
+// 导入用户API
+app.post('/api/auth/import', upload.single('csvFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '请选择CSV文件' 
+      });
+    }
+    
+    const results = [];
+    const errors = [];
+    
+    // 解析CSV文件
+    fs.createReadStream(req.file.path)
+      .pipe(csv())
+      .on('data', async (data) => {
+        try {
+          // 提取用户信息
+          const username = data.username || data.账号;
+          const password = data.password || data.密码;
+          const role = data.role || data.权限 || 'viewer';
+          const adminLevel = data.adminLevel || data.行政级别;
+          const permission = data.permission || data.权限;
+          const factory = data.factory || data.厂区;
+          
+          // 验证必填字段
+          if (!username || !password) {
+            errors.push({ 
+              username: username || '未知', 
+              error: '缺少用户名或密码' 
+            });
+            return;
+          }
+          
+          // 验证角色
+          const validRoles = ['admin', 'operator', 'viewer', 'maint'];
+          if (!validRoles.includes(role)) {
+            errors.push({ 
+              username: username, 
+              error: '角色无效，必须是 admin, operator, viewer 或 maint' 
+            });
+            return;
+          }
+          
+          // 检查用户是否已存在
+          const existingUser = await User.findOne({ where: { username } });
+          if (existingUser) {
+            errors.push({ 
+              username: username, 
+              error: '用户名已存在' 
+            });
+            return;
+          }
+          
+          // 使用bcrypt加密密码
+          const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+          
+          // 创建用户
+          const user = await User.create({
+            username,
+            password: hashedPassword,
+            role,
+            adminLevel,
+            permission,
+            factory
+          });
+          
+          results.push({ 
+            username: user.username, 
+            role: user.role, 
+            adminLevel: user.adminLevel, 
+            permission: user.permission, 
+            factory: user.factory, 
+            status: '成功' 
+          });
+        } catch (error) {
+          errors.push({ 
+            username: data.username || data.账号 || '未知', 
+            error: error.message 
+          });
+        }
+      })
+      .on('end', () => {
+        // 删除临时文件
+        fs.unlinkSync(req.file.path);
+        
+        // 返回结果
+        res.json({
+          success: true,
+          message: `导入完成，成功 ${results.length} 个，失败 ${errors.length} 个`,
+          data: {
+            success: results,
+            errors: errors
+          }
+        });
+      })
+      .on('error', (error) => {
+        // 删除临时文件
+        fs.unlinkSync(req.file.path);
+        
+        res.status(500).json({
+          success: false,
+          message: '解析CSV文件失败',
+          error: error.message
+        });
+      });
+  } catch (error) {
+    // 删除临时文件
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: '导入失败',
+      error: error.message
+    });
+  }
 });
 
 // 设备管理API
@@ -137,7 +611,7 @@ app.get('/api/devices', async (req, res) => {
       // 搜索设备
       devices = await Device.findAll({
         where: {
-          name: {
+          device_no: {
             [Op.like]: `%${search}%`
           }
         }
@@ -161,11 +635,11 @@ app.get('/api/devices', async (req, res) => {
   }
 });
 
-// 根据位号获取设备
-app.get('/api/devices/:tag', async (req, res) => {
+// 根据设备号获取设备
+app.get('/api/devices/:device_no', async (req, res) => {
   try {
-    const { tag } = req.params;
-    const device = await Device.findOne({ where: { tag } });
+    const { device_no } = req.params;
+    const device = await Device.findOne({ where: { device_no } });
     if (device) {
       res.json({
         success: true,
@@ -207,13 +681,13 @@ app.post('/api/devices', async (req, res) => {
 });
 
 // 更新设备
-app.put('/api/devices/:tag', async (req, res) => {
+app.put('/api/devices/:device_no', async (req, res) => {
   try {
-    const { tag } = req.params;
+    const { device_no } = req.params;
     const deviceData = req.body;
-    const [updated] = await Device.update(deviceData, { where: { tag } });
+    const [updated] = await Device.update(deviceData, { where: { device_no } });
     if (updated) {
-      const updatedDevice = await Device.findOne({ where: { tag } });
+      const updatedDevice = await Device.findOne({ where: { device_no } });
       res.json({
         success: true,
         data: updatedDevice,
@@ -235,10 +709,10 @@ app.put('/api/devices/:tag', async (req, res) => {
 });
 
 // 删除设备
-app.delete('/api/devices/:tag', async (req, res) => {
+app.delete('/api/devices/:device_no', async (req, res) => {
   try {
-    const { tag } = req.params;
-    const deleted = await Device.destroy({ where: { tag } });
+    const { device_no } = req.params;
+    const deleted = await Device.destroy({ where: { device_no } });
     if (deleted) {
       res.json({
         success: true,

@@ -1,0 +1,20 @@
+# 依赖包
+node_modules/
+
+# 环境变量文件
+.env
+
+# 日志文件
+logs
+*.log
+
+# 上传目录
+uploads/
+
+# IDE文件
+.vscode/
+.idea/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db

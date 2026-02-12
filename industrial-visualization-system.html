@@ -249,12 +249,18 @@
                 <div class="px-4 py-3 bg-gray-700/50 rounded-lg">
                     <div class="flex flex-col space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-sm">MQTT</span>
-                            <div id="mqtt-connection-status" class="status-indicator status-offline"></div>
+                            <span class="text-sm">实时库</span>
+                            <div class="flex space-x-2">
+                                <div id="mqtt-primary-status" class="status-indicator status-offline"></div>
+                                <div id="mqtt-backup-status" class="status-indicator status-offline"></div>
+                            </div>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-sm">MySQL</span>
-                            <div id="mysql-connection-status" class="status-indicator status-offline"></div>
+                            <span class="text-sm">数据库</span>
+                            <div class="flex space-x-2">
+                                <div id="mysql-primary-status" class="status-indicator status-offline"></div>
+                                <div id="mysql-backup-status" class="status-indicator status-offline"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="flex justify-center mt-2">
@@ -654,6 +660,7 @@
                         </div>
                     </div>
                 </div>
+
                 <div id="history-data" class="page-content hidden">
                     <div class="card mb-1 w-full">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-0 p-1">
@@ -737,7 +744,7 @@
         </div>
     </div>
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" id="config-modal">
-        <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-bold text-gray-800">连接配置</h3>
                 <button id="close-config-modal" class="text-gray-400 hover:text-gray-600">
@@ -749,6 +756,7 @@
             <div class="flex mb-4 border-b border-gray-200">
                 <button id="mqtt-tab" class="px-4 py-2 border-b-2 border-primary text-primary font-medium">MQTT</button>
                 <button id="mysql-tab" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">MySQL</button>
+                <button id="user-tab" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">用户管理</button>
             </div>
             
             <!-- MQTT配置表单 -->
@@ -799,6 +807,69 @@
                 </div>
             </div>
             
+            <!-- 用户管理表单 -->
+            <div id="user-config" class="space-y-4 hidden">
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">导入用户</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">选择CSV文件</label>
+                            <input type="file" id="csv-file" accept=".csv" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-xs text-gray-500">
+                                CSV文件格式要求：
+                                <br>账号,密码,行政级别,权限,厂区
+                                <br>权限选项：admin, operator, viewer, maint
+                                <br>示例：user1,123456,经理,admin,一厂
+                            </p>
+                        </div>
+                        <button id="import-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                            <i class="fa fa-upload mr-1"></i> 导入
+                        </button>
+                    </div>
+                </div>
+                <div id="import-result" class="hidden">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">导入结果</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div id="import-message" class="mb-4"></div>
+                        <div id="success-list" class="mb-4 hidden">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">成功导入</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-gray-700">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-2">账号</th>
+                                            <th scope="col" class="px-3 py-2">权限</th>
+                                            <th scope="col" class="px-3 py-2">行政级别</th>
+                                            <th scope="col" class="px-3 py-2">厂区</th>
+                                            <th scope="col" class="px-3 py-2">状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="success-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="error-list" class="mb-4 hidden">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">导入失败</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-gray-700">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-2">账号</th>
+                                            <th scope="col" class="px-3 py-2">错误信息</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="error-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="flex justify-end space-x-3 mt-6">
                 <button id="disconnect-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-danger hover:bg-red-50 transition-colors">
                     <i class="fa fa-unplug mr-1"></i> 断开
@@ -816,14 +887,27 @@
         </div>
     </div>
     <script>
-        // MQTT配置
-        const mqttConfig = {
-            host: '192.168.10.179',
+        // MQTT配置 - 主服务器
+        const mqttPrimaryConfig = {
+            host: '192.168.10.180',
             port: 15675,
             username: 'mqtest',
             password: 'mqtest',
             clientId: clientId // 使用与API相同的clientId
         };
+        
+        // MQTT配置 - 备用服务器
+        const mqttBackupConfig = {
+            host: '192.168.10.182',
+            port: 15675,
+            username: 'mqtest',
+            password: 'mqtest',
+            clientId: clientId // 使用与API相同的clientId
+        };
+        
+        // 当前活动的MQTT配置
+        let mqttConfig = mqttPrimaryConfig;
+        let isMQTTPrimaryActive = true;
         
         // MySQL配置
         const mysqlConfig = {
@@ -846,6 +930,9 @@
             
             // 启动MySQL后端服务连接状态检查
             startMySQLStatusCheck();
+            
+            // 启动MySQL服务器状态检查（主备服务器）
+            startMySQLServersStatusCheck();
             
             initEventListeners();
             
@@ -904,22 +991,27 @@
         function initConfigTabSwitching() {
             const mqttTab = document.getElementById('mqtt-tab');
             const mysqlTab = document.getElementById('mysql-tab');
+            const userTab = document.getElementById('user-tab');
             const mqttConfig = document.getElementById('mqtt-config');
             const mysqlConfigForm = document.getElementById('mysql-config');
+            const userConfig = document.getElementById('user-config');
             
-            if (mqttTab && mysqlTab && mqttConfig && mysqlConfigForm) {
+            if (mqttTab && mysqlTab && userTab && mqttConfig && mysqlConfigForm && userConfig) {
                 mqttTab.addEventListener('click', function() {
                     // 激活MQTT标签
                     mqttTab.classList.add('border-primary', 'text-primary');
                     mqttTab.classList.remove('border-transparent', 'text-gray-500');
                     
-                    // 取消激活MySQL标签
+                    // 取消激活其他标签
                     mysqlTab.classList.add('border-transparent', 'text-gray-500');
                     mysqlTab.classList.remove('border-primary', 'text-primary');
+                    userTab.classList.add('border-transparent', 'text-gray-500');
+                    userTab.classList.remove('border-primary', 'text-primary');
                     
-                    // 显示MQTT配置，隐藏MySQL配置
+                    // 显示MQTT配置，隐藏其他配置
                     mqttConfig.classList.remove('hidden');
                     mysqlConfigForm.classList.add('hidden');
+                    userConfig.classList.add('hidden');
                 });
                 
                 mysqlTab.addEventListener('click', function() {
@@ -927,13 +1019,33 @@
                     mysqlTab.classList.add('border-primary', 'text-primary');
                     mysqlTab.classList.remove('border-transparent', 'text-gray-500');
                     
-                    // 取消激活MQTT标签
+                    // 取消激活其他标签
                     mqttTab.classList.add('border-transparent', 'text-gray-500');
                     mqttTab.classList.remove('border-primary', 'text-primary');
+                    userTab.classList.add('border-transparent', 'text-gray-500');
+                    userTab.classList.remove('border-primary', 'text-primary');
                     
-                    // 显示MySQL配置，隐藏MQTT配置
+                    // 显示MySQL配置，隐藏其他配置
                     mysqlConfigForm.classList.remove('hidden');
                     mqttConfig.classList.add('hidden');
+                    userConfig.classList.add('hidden');
+                });
+                
+                userTab.addEventListener('click', function() {
+                    // 激活用户管理标签
+                    userTab.classList.add('border-primary', 'text-primary');
+                    userTab.classList.remove('border-transparent', 'text-gray-500');
+                    
+                    // 取消激活其他标签
+                    mqttTab.classList.add('border-transparent', 'text-gray-500');
+                    mqttTab.classList.remove('border-primary', 'text-primary');
+                    mysqlTab.classList.add('border-transparent', 'text-gray-500');
+                    mysqlTab.classList.remove('border-primary', 'text-primary');
+                    
+                    // 显示用户管理配置，隐藏其他配置
+                    userConfig.classList.remove('hidden');
+                    mqttConfig.classList.add('hidden');
+                    mysqlConfigForm.classList.add('hidden');
                 });
             }
         }
@@ -947,25 +1059,73 @@
                     const username = document.getElementById('login-username').value;
                     const password = document.getElementById('login-password').value;
                     
-                    // 简单的登录验证（后续可替换为实际的验证逻辑）
+                    // 登录验证（调试模式）
                     if (username && password) {
-                        console.log('登录成功，用户名:', username);
-                        
-                        // 更新登录人信息
-                        document.getElementById('login-user').textContent = username;
-                        
-                        // 隐藏登录界面，显示主系统界面
-                        document.getElementById('login-page').classList.add('hidden');
-                        document.getElementById('main-page').classList.remove('hidden');
-                        
-                        // 默认进入综合概况画面
-                        setTimeout(function() {
-                            const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
-                            if (overviewMenuItem) {
-                                // 模拟点击综合概况菜单
-                                overviewMenuItem.click();
-                            }
-                        }, 100);
+                        // 调试模式：直接验证admin账号
+                        if (username === 'admin' && password === 'admin') {
+                            console.log('调试模式：登录成功，用户: admin');
+                            
+                            // 模拟token和用户信息
+                            localStorage.setItem('token', 'debug_token_' + Date.now());
+                            localStorage.setItem('userRole', 'admin');
+                            
+                            // 更新登录人信息
+                            document.getElementById('login-user').textContent = username;
+                            
+                            // 隐藏登录界面，显示主系统界面
+                            document.getElementById('login-page').classList.add('hidden');
+                            document.getElementById('main-page').classList.remove('hidden');
+                            
+                            // 默认进入综合概况画面
+                            setTimeout(function() {
+                                const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
+                                if (overviewMenuItem) {
+                                    // 模拟点击综合概况菜单
+                                    overviewMenuItem.click();
+                                }
+                            }, 100);
+                        } else {
+                            // 非admin账号，尝试后端API验证
+                            fetch('http://localhost:3002/api/auth/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ username, password })
+                            })
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.success) {
+                                    console.log('登录成功，用户:', result.user);
+                                    
+                                    // 存储token（后续API请求使用）
+                                    localStorage.setItem('token', result.token);
+                                    localStorage.setItem('userRole', result.user.role);
+                                    
+                                    // 更新登录人信息
+                                    document.getElementById('login-user').textContent = username;
+                                    
+                                    // 隐藏登录界面，显示主系统界面
+                                    document.getElementById('login-page').classList.add('hidden');
+                                    document.getElementById('main-page').classList.remove('hidden');
+                                    
+                                    // 默认进入综合概况画面
+                                    setTimeout(function() {
+                                        const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
+                                        if (overviewMenuItem) {
+                                            // 模拟点击综合概况菜单
+                                            overviewMenuItem.click();
+                                        }
+                                    }, 100);
+                                } else {
+                                    alert('登录失败: ' + (result.message || '用户名或密码错误'));
+                                }
+                            })
+                            .catch(error => {
+                                console.error('登录请求失败:', error);
+                                alert('登录请求失败，请检查网络连接');
+                            });
+                        }
                     } else {
                         alert('请输入用户名和密码');
                     }
@@ -1267,87 +1427,10 @@
                 }
             });
             
-            // 历史数据查询按钮点击事件
-            window.addEventListener('load', function() {
-                console.log('页面加载完成，开始绑定历史数据查询按钮事件');
-                const historyQueryBtn = document.getElementById('history-query-btn');
-                console.log('历史数据查询按钮:', historyQueryBtn);
-                if (historyQueryBtn) {
-                    console.log('为历史数据查询按钮添加点击事件监听器');
-                    historyQueryBtn.addEventListener('click', function() {
-                        console.log('=====================================');
-                        console.log('历史数据查询按钮被点击');
-                        console.log('当前时间:', new Date().toLocaleString());
-                        console.log('MQTT连接状态:', isConnected);
-                        console.log('MQTT客户端:', mqttClient);
-                        console.log('MQTT客户端状态:', mqttClient ? mqttClient.connected : '未初始化');
-                        
-                        if (mqttClient && isConnected) {
-                            console.log('MQTT连接正常，开始构建查询消息');
-                            // 获取用户选择的设备
-                            const deviceSelect = document.getElementById('history-device-select');
-                            console.log('设备选择下拉框:', deviceSelect);
-                            if (deviceSelect) {
-                                const selectedDevice = deviceSelect.value;
-                                console.log('选中的设备:', selectedDevice);
-                                
-                                // 构建设备名称数组
-                                let deviceNames = [];
-                                if (selectedDevice === 'all') {
-                                    // 如果选择全部设备，使用所有实时设备名称
-                                    deviceNames = Object.keys(deviceData);
-                                } else {
-                                    // 否则使用选中的设备名称
-                                    deviceNames = [selectedDevice];
-                                }
-                                console.log('查询的设备名称数组:', deviceNames);
-                                
-                                // 构建历史数据查询消息
-                                const queryMessage = {
-                                    method: "HistoryData",
-                                    topic: "hisdatatest",
-                                    names: deviceNames,
-                                    seq: 1,
-                                    mode: 0,
-                                    begintime: Date.now() - 3600000, // 1小时前
-                                    endtime: Date.now(), // 当前时间
-                                    count: 20,
-                                    interval: 1000,
-                                    timeout: 20000
-                                };
-                                console.log('构建的查询消息:', JSON.stringify(queryMessage, null, 2));
-                                
-                                // 发布查询消息到SupconScadaHisData主题
-                                console.log('准备发布查询消息到SupconScadaHisData主题');
-                                try {
-                                    mqttClient.publish('SupconScadaHisData', JSON.stringify(queryMessage), function(err) {
-                                        if (!err) {
-                                            console.log('历史数据查询消息发布成功');
-                                            console.log('查询参数:', queryMessage);
-                                            alert('历史数据查询消息发布成功，请等待数据返回');
-                                        } else {
-                                            console.error('历史数据查询消息发布失败:', err);
-                                            alert('历史数据查询消息发布失败: ' + err.message);
-                                        }
-                                    });
-                                } catch (publishError) {
-                                    console.error('发布消息时发生异常:', publishError);
-                                    alert('发布消息时发生异常: ' + publishError.message);
-                                }
-                            } else {
-                                console.error('未找到设备选择下拉框');
-                                alert('未找到设备选择下拉框');
-                            }
-                        } else {
-                            console.error('MQTT未连接，无法查询历史数据');
-                            alert('请先连接MQTT服务器');
-                        }
-                        console.log('=====================================');
-                    });
-                } else {
-                    console.error('未找到历史数据查询按钮');
-                }
-            });
+            // 历史数据查询功能已集成到其他事件中，不再需要单独的按钮事件
+            
+            // 初始化用户导入功能
+            initUserImportFunctionality();
             
             // 设备选择变化时自动更新数据类型
             const deviceSelect = document.getElementById('history-device-select');
@@ -1391,6 +1474,7 @@
          * 5. 订阅相关MQTT主题
          */
         function connectMQTT() {
+            // 尝试连接当前配置的MQTT服务器
             const brokerUrl = 'ws://' + mqttConfig.host + ':' + mqttConfig.port + '/ws';
             console.log('尝试连接到 MQTT 服务器:', brokerUrl);
             mqttClient = mqtt.connect(brokerUrl, {
@@ -1406,11 +1490,9 @@
             mqttClient.on('connect', function() {
                 console.log('MQTT 连接成功');
                 isConnected = true;
-                const mqttStatus = document.getElementById('mqtt-connection-status');
-                if (mqttStatus) {
-                    mqttStatus.classList.remove('status-offline');
-                    mqttStatus.classList.add('status-online');
-                }
+                
+                // 更新状态灯
+                updateMQTTStatusLights();
                 // 连接成功后停止模拟数据
                 if (simulationInterval) {
                     clearInterval(simulationInterval);
@@ -1481,6 +1563,15 @@
                 // 不要立即将状态设置为离线，因为客户端可能正在自动重连
                 console.log('MQTT 客户端可能正在自动重连...');
                 // 只在确认连接真正断开时才更新状态
+                updateMQTTStatusLights();
+                // 尝试切换到备用服务器
+                switchMQTTServer();
+            });
+            
+            mqttClient.on('close', function() {
+                console.log('MQTT 连接关闭');
+                isConnected = false;
+                updateMQTTStatusLights();
             });
             mqttClient.on('message', function(topic, message) {
                 console.log('收到消息:', topic, message.toString());
@@ -1535,12 +1626,141 @@
                 mqttClient.end();
                 mqttClient = null;
                 isConnected = false;
-                const mqttStatus = document.getElementById('mqtt-connection-status');
-                if (mqttStatus) {
-                    mqttStatus.classList.remove('status-online');
-                    mqttStatus.classList.add('status-offline');
-                }
+                updateMQTTStatusLights();
                 console.log('MQTT 连接已断开');
+            }
+        }
+        
+        // 更新MQTT状态灯
+        function updateMQTTStatusLights() {
+            const primaryStatus = document.getElementById('mqtt-primary-status');
+            const backupStatus = document.getElementById('mqtt-backup-status');
+            
+            if (primaryStatus) {
+                primaryStatus.classList.remove('status-online', 'status-offline');
+                primaryStatus.classList.add(isMQTTPrimaryActive && isConnected ? 'status-online' : 'status-offline');
+            }
+            
+            if (backupStatus) {
+                backupStatus.classList.remove('status-online', 'status-offline');
+                backupStatus.classList.add(!isMQTTPrimaryActive && isConnected ? 'status-online' : 'status-offline');
+            }
+        }
+        
+        // 切换MQTT服务器
+        function switchMQTTServer() {
+            console.log('开始切换MQTT服务器...');
+            
+            if (isMQTTPrimaryActive) {
+                // 切换到备用服务器
+                mqttConfig = mqttBackupConfig;
+                isMQTTPrimaryActive = false;
+                console.log('已切换到备用MQTT服务器:', mqttConfig.host);
+            } else {
+                // 切换回主服务器
+                mqttConfig = mqttPrimaryConfig;
+                isMQTTPrimaryActive = true;
+                console.log('已切换回主MQTT服务器:', mqttConfig.host);
+            }
+            
+            // 重新连接
+            console.log('正在重新连接到MQTT服务器...');
+            connectMQTT();
+        }
+        
+        // 初始化用户导入功能
+        function initUserImportFunctionality() {
+            const importBtn = document.getElementById('import-btn');
+            if (importBtn) {
+                importBtn.addEventListener('click', function() {
+                    const csvFile = document.getElementById('csv-file').files[0];
+                    if (!csvFile) {
+                        alert('请选择CSV文件');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('csvFile', csvFile);
+                    
+                    console.log('开始导入用户...');
+                    
+                    // 显示加载状态
+                    importBtn.disabled = true;
+                    importBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 导入中...';
+                    
+                    // 发送请求到后端API
+                    fetch('http://localhost:3002/api/auth/import', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        console.log('导入结果:', result);
+                        
+                        // 恢复按钮状态
+                        importBtn.disabled = false;
+                        importBtn.innerHTML = '<i class="fa fa-upload mr-1"></i> 导入';
+                        
+                        // 显示导入结果
+                        const importResult = document.getElementById('import-result');
+                        const importMessage = document.getElementById('import-message');
+                        const successList = document.getElementById('success-list');
+                        const successTableBody = document.getElementById('success-table-body');
+                        const errorList = document.getElementById('error-list');
+                        const errorTableBody = document.getElementById('error-table-body');
+                        
+                        if (importResult && importMessage) {
+                            importResult.classList.remove('hidden');
+                            importMessage.textContent = result.message;
+                            
+                            // 清空之前的结果
+                            successTableBody.innerHTML = '';
+                            errorTableBody.innerHTML = '';
+                            
+                            // 显示成功的结果
+                            if (result.data && result.data.success && result.data.success.length > 0) {
+                                successList.classList.remove('hidden');
+                                result.data.success.forEach(user => {
+                                    const row = document.createElement('tr');
+                                    row.innerHTML = `
+                                        <td class="px-3 py-2">${user.username}</td>
+                                        <td class="px-3 py-2">${user.role}</td>
+                                        <td class="px-3 py-2">${user.adminLevel || '-'}</td>
+                                        <td class="px-3 py-2">${user.factory || '-'}</td>
+                                        <td class="px-3 py-2 text-success">${user.status}</td>
+                                    `;
+                                    successTableBody.appendChild(row);
+                                });
+                            } else {
+                                successList.classList.add('hidden');
+                            }
+                            
+                            // 显示失败的结果
+                            if (result.data && result.data.errors && result.data.errors.length > 0) {
+                                errorList.classList.remove('hidden');
+                                result.data.errors.forEach(error => {
+                                    const row = document.createElement('tr');
+                                    row.innerHTML = `
+                                        <td class="px-3 py-2">${error.username}</td>
+                                        <td class="px-3 py-2 text-danger">${error.error}</td>
+                                    `;
+                                    errorTableBody.appendChild(row);
+                                });
+                            } else {
+                                errorList.classList.add('hidden');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('导入失败:', error);
+                        
+                        // 恢复按钮状态
+                        importBtn.disabled = false;
+                        importBtn.innerHTML = '<i class="fa fa-upload mr-1"></i> 导入';
+                        
+                        alert('导入失败: ' + error.message);
+                    });
+                });
             }
         }
         /**
@@ -2254,6 +2474,59 @@
                     noDevicesMessage.classList.remove('hidden');
                 }
             }
+        }
+        
+        // 启动MySQL后端服务连接状态检查
+        function startMySQLStatusCheck() {
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/health');
+                    const data = await response.json();
+                    if (data.status === 'ok') {
+                        document.getElementById('mysql-primary-status').classList.remove('status-offline');
+                        document.getElementById('mysql-primary-status').classList.add('status-online');
+                    } else {
+                        document.getElementById('mysql-primary-status').classList.remove('status-online');
+                        document.getElementById('mysql-primary-status').classList.add('status-offline');
+                    }
+                } catch (error) {
+                    document.getElementById('mysql-primary-status').classList.remove('status-online');
+                    document.getElementById('mysql-primary-status').classList.add('status-offline');
+                }
+            }, 5000); // 每5秒检查一次
+        }
+        
+        // 启动MySQL服务器状态检查（主备服务器）
+        function startMySQLServersStatusCheck() {
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/mysql/status');
+                    const data = await response.json();
+                    if (data.success) {
+                        // 更新主服务器状态
+                        const primaryStatus = document.getElementById('mysql-primary-status');
+                        if (data.data.primary) {
+                            primaryStatus.classList.remove('status-offline');
+                            primaryStatus.classList.add('status-online');
+                        } else {
+                            primaryStatus.classList.remove('status-online');
+                            primaryStatus.classList.add('status-offline');
+                        }
+                        
+                        // 更新备用服务器状态
+                        const backupStatus = document.getElementById('mysql-backup-status');
+                        if (data.data.backup) {
+                            backupStatus.classList.remove('status-offline');
+                            backupStatus.classList.add('status-online');
+                        } else {
+                            backupStatus.classList.remove('status-online');
+                            backupStatus.classList.add('status-offline');
+                        }
+                    }
+                } catch (error) {
+                    console.error('获取MySQL服务器状态失败:', error);
+                }
+            }, 3000); // 每3秒检查一次
         }
         
         // 搜索设备（原有的搜索按钮功能）
