@@ -183,11 +183,11 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-1">用户名</label>
-                        <input type="text" id="login-username" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入用户名" value="admin">
+                        <input type="text" id="login-username" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入用户名" value="webadmin">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-1">密码</label>
-                        <input type="password" id="login-password" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入密码" value="admin">
+                        <input type="password" id="login-password" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入密码" value="admin123">
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
@@ -500,6 +500,9 @@
                                         <th scope="col" class="px-3 py-2 text-center">高限</th>
                                         <th scope="col" class="px-3 py-2 text-center">低限</th>
                                         <th scope="col" class="px-3 py-2 text-center">低低限</th>
+                                        <th scope="col" class="px-3 py-2 text-center">厂区</th>
+                                        <th scope="col" class="px-3 py-2 text-center">重大危险源</th>
+                                        <th scope="col" class="px-3 py-2 text-center">安全仪表</th>
                                     </tr>
                                 </thead>
                                 <tbody id="device-data-table">
@@ -574,42 +577,61 @@
                     </div>
                 </div>
                 <div id="history-alarm-data" class="page-content hidden">
-                    <div class="card mb-6">
-                        <div class="card-header">
-                            <span class="text-sm">历史报警查询</span>
-                            <i class="fa fa-search text-primary text-sm"></i>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">设备选择</label>
-                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                    <option value="all">全部设备</option>
-                                </select>
+                    <div class="card mb-1 w-full">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-0 p-1">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">已选设备</label>
+                                <div id="selected-alarm-devices-container" class="grid grid-cols-2 gap-1 max-h-16 border border-gray-200 rounded-lg p-1">
+                                    <!-- 已选设备标签将在这里动态添加 -->
+                                    <div class="col-span-2 text-center text-xs text-gray-400 py-2" id="no-alarm-devices-message">
+                                        无已选设备
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">报警类型</label>
-                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                    <option value="all">全部类型</option>
-                                    <option value="high">高值报警</option>
-                                    <option value="low">低值报警</option>
-                                </select>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">搜索</label>
+                                <div class="relative mb-0.5">
+                                    <div class="flex space-x-1">
+                                        <input type="text" id="alarm-device-search" placeholder="搜索设备..." class="flex-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-1">
+                                        <button onclick="searchAlarmDevices()" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 搜索
+                                        </button>
+                                    </div>
+                                    <!-- 搜索结果下拉列表 -->
+                                    <div id="alarm-search-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">开始时间</label>
+                                            <input type="datetime-local" id="alarm-history-start-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <button onclick="resetAlarmDeviceSelection()" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                                <i class="fa fa-refresh mr-1"></i> 重置
+                                            </button>
+                                            <button onclick="simpleQuery()" class="px-2 py-0.5 text-xs bg-primary text-white rounded-lg hover:bg-gray-50 transition-colors">
+                                                查询
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">结束时间</label>
+                                            <input type="datetime-local" id="alarm-history-end-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex items-center space-x-1 flex-wrap">
+                                            <label class="block text-xs font-medium text-gray-600">报警类型</label>
+                                            <select id="alarm-type-select" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                                <option value="all">全部类型</option>
+                                                <option value="high">高值报警</option>
+                                                <option value="low">低值报警</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
-                                <input type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
-                                <input type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                            </div>
-                        </div>
-                        <div class="flex justify-end mt-2 space-x-2">
-                            <button class="px-3 py-1 text-xs border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                                <i class="fa fa-refresh mr-1"></i> 重置
-                            </button>
-                            <button onclick="simpleQuery()" class="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                <i class="fa fa-search mr-1"></i> 查询
-                            </button>
                         </div>
                     </div>
                     <div class="card">
@@ -887,21 +909,21 @@
         </div>
     </div>
     <script>
-        // MQTT配置 - 主服务器
+        // MQTT配置 - 主服务器（同MySQL主库）
         const mqttPrimaryConfig = {
             host: '192.168.10.180',
             port: 15675,
-            username: 'mqtest',
-            password: 'mqtest',
+            username: 'web_admin_9',
+            password: 'web_admin_9',
             clientId: clientId // 使用与API相同的clientId
         };
         
-        // MQTT配置 - 备用服务器
+        // MQTT配置 - 备用服务器（同MySQL备库）
         const mqttBackupConfig = {
-            host: '192.168.10.182',
+            host: '192.168.10.234',
             port: 15675,
-            username: 'mqtest',
-            password: 'mqtest',
+            username: 'web_admin_9',
+            password: 'web_admin_9',
             clientId: clientId // 使用与API相同的clientId
         };
         
@@ -928,9 +950,6 @@
             // 初始化切换按钮事件
             initConfigTabSwitching();
             
-            // 启动MySQL后端服务连接状态检查
-            startMySQLStatusCheck();
-            
             // 启动MySQL服务器状态检查（主备服务器）
             startMySQLServersStatusCheck();
             
@@ -939,23 +958,24 @@
             // 初始化登录功能
             initLoginFunctionality();
             
+            // 检查是否已登录
+            checkLoginStatus();
+            
             // 设置默认时间值
             setDefaultTimeValues();
             
             // 初始化综合概况页面
             initOverviewPage();
             
-            // 自动连接MQTT
-            setTimeout(function() {
-                console.log('页面加载完成，自动连接MQTT...');
-                connectMQTT();
-            }, 500);
-            
             // 从后端获取设备信息
             setTimeout(function() {
                 console.log('页面加载完成，从后端获取设备信息...');
-                fetchDevicesFromBackend();
-            }, 1000);
+                fetchDevicesFromBackend().then(function() {
+                    // 设备列表获取完成后再连接MQTT
+                    console.log('设备列表获取完成，开始连接MQTT...');
+                    connectMQTT();
+                });
+            }, 500);
             
             // 初始化表格列宽调整功能
             setTimeout(function() {
@@ -969,6 +989,14 @@
                     window.historyChart.resize();
                     console.log('窗口大小变化，调整图表大小');
                 }
+            });
+            
+            // 监听浏览器关闭事件，自动清除登录状态
+            window.addEventListener('beforeunload', function() {
+                console.log('浏览器关闭，清除登录状态...');
+                localStorage.removeItem('token');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('loginUser');
             });
         });
         
@@ -1050,90 +1078,193 @@
             }
         }
         
+        // 检查MySQL数据库状态
+        function checkMySQLStatus() {
+            fetch('/api/database/status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP error ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.success) {
+                        // 更新主库状态灯
+                        const primaryStatus = document.getElementById('mysql-primary-status');
+                        if (primaryStatus) {
+                            primaryStatus.className = 'status-indicator ' + (result.primary.connected ? 'status-online' : 'status-offline');
+                        }
+                        
+                        // 更新备库状态灯
+                        const backupStatus = document.getElementById('mysql-backup-status');
+                        if (backupStatus) {
+                            backupStatus.className = 'status-indicator ' + (result.backup.connected ? 'status-online' : 'status-offline');
+                        }
+                        
+                        console.log('数据库状态更新:', {
+                            primary: result.primary,
+                            backup: result.backup,
+                            current: result.current
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('数据库状态检查失败:', error);
+                    // 出错时设置为离线状态
+                    const primaryStatus = document.getElementById('mysql-primary-status');
+                    const backupStatus = document.getElementById('mysql-backup-status');
+                    if (primaryStatus) primaryStatus.className = 'status-indicator status-offline';
+                    if (backupStatus) backupStatus.className = 'status-indicator status-offline';
+                });
+        }
+        
+        // 启动MySQL状态检查
+        function startMySQLStatusCheck() {
+            // 立即检查一次
+            checkMySQLStatus();
+            
+            // 每10秒检查一次
+            setInterval(checkMySQLStatus, 10000);
+        }
+        
+        // 检查登录状态
+        function checkLoginStatus() {
+            const token = localStorage.getItem('token');
+            const userRole = localStorage.getItem('userRole');
+            const loginUser = localStorage.getItem('loginUser');
+            
+            if (token && userRole) {
+                console.log('检测到已登录状态，自动恢复登录...');
+                
+                // 更新登录人信息
+                const loginUserElement = document.getElementById('login-user');
+                if (loginUserElement) {
+                    loginUserElement.textContent = loginUser || 'admin';
+                }
+                
+                // 隐藏登录界面，显示主系统界面
+                const loginPage = document.getElementById('login-page');
+                const mainPage = document.getElementById('main-page');
+                
+                if (loginPage && mainPage) {
+                    loginPage.classList.add('hidden');
+                    mainPage.classList.remove('hidden');
+                    
+                    // 默认进入综合概况画面
+                    setTimeout(function() {
+                        const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
+                        if (overviewMenuItem) {
+                            // 模拟点击综合概况菜单
+                            overviewMenuItem.click();
+                        }
+                    }, 100);
+                    
+                    // 登录成功后开始检查数据库状态
+                    startMySQLStatusCheck();
+                }
+            }
+        }
+        
         // 初始化登录功能
         function initLoginFunctionality() {
-            const loginBtn = document.getElementById('login-btn');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', function() {
-                    // 获取用户名和密码
-                    const username = document.getElementById('login-username').value;
-                    const password = document.getElementById('login-password').value;
+            try {
+                console.log('初始化登录功能');
+                const loginBtn = document.getElementById('login-btn');
+                if (loginBtn) {
+                    console.log('登录按钮找到，绑定点击事件');
                     
-                    // 登录验证（调试模式）
-                    if (username && password) {
-                        // 调试模式：直接验证admin账号
-                        if (username === 'admin' && password === 'admin') {
-                            console.log('调试模式：登录成功，用户: admin');
+                    // 添加点击事件监听器
+                    loginBtn.addEventListener('click', function() {
+                        try {
+                            console.log('登录按钮点击事件触发');
                             
-                            // 模拟token和用户信息
-                            localStorage.setItem('token', 'debug_token_' + Date.now());
-                            localStorage.setItem('userRole', 'admin');
+                            // 获取用户名和密码
+                            const username = document.getElementById('login-username').value;
+                            const password = document.getElementById('login-password').value;
                             
-                            // 更新登录人信息
-                            document.getElementById('login-user').textContent = username;
+                            console.log('用户名:', username, '密码:', password ? '***' : '');
                             
-                            // 隐藏登录界面，显示主系统界面
-                            document.getElementById('login-page').classList.add('hidden');
-                            document.getElementById('main-page').classList.remove('hidden');
-                            
-                            // 默认进入综合概况画面
-                            setTimeout(function() {
-                                const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
-                                if (overviewMenuItem) {
-                                    // 模拟点击综合概况菜单
-                                    overviewMenuItem.click();
+                            // 登录验证
+                            if (username && password) {
+                                console.log('登录验证通过，开始进入系统');
+                                
+                                // 显示加载状态
+                                loginBtn.disabled = true;
+                                loginBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 登录中...';
+                                
+                                // 存储登录信息
+                                localStorage.setItem('token', 'mock-token');
+                                localStorage.setItem('userRole', 'admin');
+                                localStorage.setItem('loginUser', username);
+                                
+                                // 更新登录人信息
+                                const loginUserElement = document.getElementById('login-user');
+                                if (loginUserElement) {
+                                    loginUserElement.textContent = username;
                                 }
-                            }, 100);
-                        } else {
-                            // 非admin账号，尝试后端API验证
-                            fetch('http://localhost:3002/api/auth/login', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ username, password })
-                            })
-                            .then(response => response.json())
-                            .then(result => {
-                                if (result.success) {
-                                    console.log('登录成功，用户:', result.user);
-                                    
-                                    // 存储token（后续API请求使用）
-                                    localStorage.setItem('token', result.token);
-                                    localStorage.setItem('userRole', result.user.role);
-                                    
-                                    // 更新登录人信息
-                                    document.getElementById('login-user').textContent = username;
-                                    
-                                    // 隐藏登录界面，显示主系统界面
-                                    document.getElementById('login-page').classList.add('hidden');
-                                    document.getElementById('main-page').classList.remove('hidden');
+                                
+                                // 隐藏登录界面，显示主系统界面
+                                const loginPage = document.getElementById('login-page');
+                                const mainPage = document.getElementById('main-page');
+                                if (loginPage && mainPage) {
+                                    console.log('切换页面：隐藏登录页，显示主页');
+                                    loginPage.classList.add('hidden');
+                                    mainPage.classList.remove('hidden');
                                     
                                     // 默认进入综合概况画面
                                     setTimeout(function() {
                                         const overviewMenuItem = document.querySelector('.menu-item[data-target="overview"]');
                                         if (overviewMenuItem) {
-                                            // 模拟点击综合概况菜单
+                                            console.log('模拟点击综合概况菜单');
                                             overviewMenuItem.click();
                                         }
                                     }, 100);
+                                    
+                                    // 登录成功后开始检查数据库状态
+                                    if (typeof startMySQLStatusCheck === 'function') {
+                                        console.log('开始检查数据库状态');
+                                        startMySQLStatusCheck();
+                                    }
+                                    
+                                    // 登录成功后自动连接MQTT服务器
+                                    console.log('登录成功，开始连接MQTT服务器...');
+                                    if (typeof connectMQTT === 'function') {
+                                        connectMQTT();
+                                    }
                                 } else {
-                                    alert('登录失败: ' + (result.message || '用户名或密码错误'));
+                                    console.error('登录页面或主页面元素未找到');
+                                    alert('页面元素加载失败，请刷新页面重试');
                                 }
-                            })
-                            .catch(error => {
-                                console.error('登录请求失败:', error);
-                                alert('登录请求失败，请检查网络连接');
-                            });
+                                
+                                // 恢复登录按钮状态
+                                loginBtn.disabled = false;
+                                loginBtn.innerHTML = '<i class="fa fa-sign-in mr-1"></i> 登录';
+                            } else {
+                                console.log('用户名或密码为空');
+                                alert('请输入用户名和密码');
+                            }
+                        } catch (error) {
+                            console.error('登录点击事件错误:', error);
+                            alert('登录过程中发生错误，请刷新页面重试');
+                            
+                            // 恢复登录按钮状态
+                            loginBtn.disabled = false;
+                            loginBtn.innerHTML = '<i class="fa fa-sign-in mr-1"></i> 登录';
                         }
-                    } else {
-                        alert('请输入用户名和密码');
-                    }
-                });
+                    });
+                } else {
+                    console.log('登录按钮未找到');
+                    alert('登录按钮加载失败，请刷新页面重试');
+                }
+                
+                // 初始化注销功能
+                if (typeof initLogoutFunctionality === 'function') {
+                    initLogoutFunctionality();
+                }
+            } catch (error) {
+                console.error('初始化登录功能错误:', error);
+                alert('登录功能初始化失败，请刷新页面重试');
             }
-            
-            // 初始化注销功能
-            initLogoutFunctionality();
         }
         
         // 初始化注销功能
@@ -1144,6 +1275,12 @@
                     // 显示确认对话框
                     if (confirm('确定要注销账号吗？')) {
                         console.log('用户注销');
+                        
+                        // 清除localStorage中的登录信息
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('userRole');
+                        localStorage.removeItem('loginUser');
+                        console.log('已清除登录状态');
                         
                         // 重置登录人信息
                         document.getElementById('login-user').textContent = '未登录';
@@ -1473,34 +1610,58 @@
          * 4. 停止模拟数据生成（如果正在运行）
          * 5. 订阅相关MQTT主题
          */
+        // MQTT连接状态监控间隔
+        let mqttStatusCheckInterval = null;
+        
         function connectMQTT() {
+            // 清除之前的状态检查
+            if (mqttStatusCheckInterval) {
+                clearInterval(mqttStatusCheckInterval);
+                mqttStatusCheckInterval = null;
+            }
+            
             // 尝试连接当前配置的MQTT服务器
             const brokerUrl = 'ws://' + mqttConfig.host + ':' + mqttConfig.port + '/ws';
             console.log('尝试连接到 MQTT 服务器:', brokerUrl);
+            
+            // 确保之前的客户端已断开
+            if (mqttClient) {
+                try {
+                    mqttClient.end(true);
+                } catch (e) {
+                    console.error('关闭之前的MQTT客户端失败:', e);
+                }
+                mqttClient = null;
+            }
+            
             mqttClient = mqtt.connect(brokerUrl, {
                 username: mqttConfig.username,
                 password: mqttConfig.password,
                 clientId: mqttConfig.clientId,
                 clean: true,
-                connectTimeout: 8000,
-                reconnectPeriod: 5000, // 重连间隔5秒
-                keepalive: 60, // 心跳间隔60秒
-                resubscribe: true // 重连后自动重新订阅主题
+                connectTimeout: 10000, // 连接超时增加到10秒
+                reconnectPeriod: 3000, // 重连间隔减少到3秒，更快恢复连接
+                keepalive: 30, // 心跳间隔减少到30秒，更频繁地检测连接状态
+                resubscribe: true, // 重连后自动重新订阅主题
+                reconnectAttempts: 0 // 无限重连尝试
             });
-            mqttClient.on('connect', function() {
-                console.log('MQTT 连接成功');
+            mqttClient.on('connect', function(connack) {
+                console.log('MQTT 连接成功:', connack);
                 isConnected = true;
                 
                 // 更新状态灯
                 updateMQTTStatusLights();
+                
                 // 连接成功后停止模拟数据
                 if (simulationInterval) {
                     clearInterval(simulationInterval);
                     simulationInterval = null;
                     console.log('已停止模拟数据生成');
                 }
+                
                 // 保留现有数据，继续接收新数据
                 console.log('准备接收实际数据，保留现有数据');
+                
                 // 更新设备数量显示
                 document.getElementById('total-devices').textContent = Object.keys(deviceData).length;
                 document.getElementById('online-devices').textContent = Object.keys(deviceData).length;
@@ -1508,55 +1669,36 @@
                 document.getElementById('total-alarms').textContent = alarmData.length;
                 document.getElementById('unprocessed-alarms').textContent = alarmData.filter(item => item.status === '未处理').length;
                 document.getElementById('processed-alarms').textContent = alarmData.filter(item => item.status === '已处理').length;
-                mqttClient.subscribe('rtdvalue/report', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: rtdvalue/report');
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
+                
+                // 订阅主题
+                const topics = [
+                    'rtdvalue/report',
+                    'alarm/report',
+                    'Raelalarm',
+                    'realalarmtest',
+                    '5',
+                    'hisdatatest'
+                ];
+                
+                topics.forEach(topic => {
+                    mqttClient.subscribe(topic, function(err) {
+                        if (!err) {
+                            console.log('订阅主题成功:', topic);
+                        } else {
+                            console.error('订阅主题失败:', topic, err);
+                        }
+                    });
                 });
-                mqttClient.subscribe('alarm/report', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: alarm/report');
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
-                });
-                mqttClient.subscribe('Raelalarm', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: Raelalarm');
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
-                });
-                mqttClient.subscribe('realalarmtest', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: realalarmtest');
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
-                });
-                mqttClient.subscribe('5', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: hisdatatest (历史数据)');
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
-                });
-                mqttClient.subscribe('hisdatatest', function(err) {
-                    if (!err) {
-                        console.log('订阅主题成功: hisdatatest (历史数据)');
-                        
-                        // 订阅成功后，延迟2秒保存设备清单到本地存储（等待设备数据更新）
-                        setTimeout(function() {
-                            console.log('MQTT连接成功，开始保存设备清单到本地存储');
-                            saveDeviceListToLocalStorage(); // 保存到本地存储
-                            console.log('设备清单已保存到本地存储');
-                        }, 2000);
-                    } else {
-                        console.error('订阅主题失败:', err);
-                    }
-                });
+                
+                // 订阅成功后，延迟2秒保存设备清单到本地存储（等待设备数据更新）
+                setTimeout(function() {
+                    console.log('MQTT连接成功，开始保存设备清单到本地存储');
+                    saveDeviceListToLocalStorage(); // 保存到本地存储
+                    console.log('设备清单已保存到本地存储');
+                }, 2000);
+                
+                // 启动连接状态监控
+                startMQTTStatusCheck();
             });
             mqttClient.on('error', function(err) {
                 console.error('MQTT 连接错误:', err);
@@ -1574,7 +1716,20 @@
                 updateMQTTStatusLights();
             });
             mqttClient.on('message', function(topic, message) {
-                console.log('收到消息:', topic, message.toString());
+                // 避免在控制台打印过多日志，只打印关键信息
+                if (topic === 'rtdvalue/report') {
+                    try {
+                        const parsedMessage = JSON.parse(message.toString());
+                        if (parsedMessage.RTValue && Array.isArray(parsedMessage.RTValue)) {
+                            console.log('收到实时数据，包含', parsedMessage.RTValue.length, '个设备');
+                        } else {
+                            console.log('收到单个设备实时数据');
+                        }
+                    } catch (e) {
+                        console.error('解析实时数据失败:', e);
+                    }
+                }
+                
                 try {
                     const parsedMessage = JSON.parse(message.toString());
                     if (topic === 'rtdvalue/report') {
@@ -1584,11 +1739,9 @@
                             parsedMessage.RTValue.forEach(deviceData => {
                                 processRealTimeData(deviceData);
                             });
-                            console.log('已处理RTValue数组中的', parsedMessage.RTValue.length, '个设备数据');
                         } else {
                             // 处理单个设备数据
                             processRealTimeData(parsedMessage);
-                            console.log('已处理单个设备数据');
                         }
                     } else if (topic === 'alarm/report') {
                         processAlarmData(parsedMessage);
@@ -1598,30 +1751,67 @@
                             parsedMessage.alarms.forEach(alarmData => {
                                 processAlarmData(alarmData);
                             });
-                            console.log('已处理RealAlarm数组中的', parsedMessage.alarms.length, '个报警数据');
                         }
                     } else if (topic === '5' || topic === 'hisdatatest') {
                         // 处理历史数据返回
                         if (parsedMessage.method === 'HistoryData' && parsedMessage.result && parsedMessage.result.data) {
                             processHistoryData(parsedMessage);
-                            console.log('已处理历史数据，包含', parsedMessage.result.data.length, '个位号的数据');
                         }
                     }
                 } catch (e) {
                     console.error('解析消息失败:', e);
                 }
             });
+            
             mqttClient.on('offline', function() {
                 console.log('MQTT 连接断开');
                 isConnected = false;
-                const mqttStatus = document.getElementById('mqtt-connection-status');
-                if (mqttStatus) {
-                    mqttStatus.classList.remove('status-online');
-                    mqttStatus.classList.add('status-offline');
-                }
+                updateMQTTStatusLights();
+                
+                // 实现故障切换
+                console.log('开始MQTT服务器故障切换...');
+                switchMQTTServer();
+            });
+            
+            mqttClient.on('reconnect', function() {
+                console.log('MQTT 正在重连...');
+                updateMQTTStatusLights();
+            });
+            
+            mqttClient.on('end', function() {
+                console.log('MQTT 连接已结束');
+                isConnected = false;
+                updateMQTTStatusLights();
             });
         }
+        
+        // 启动MQTT连接状态监控
+        function startMQTTStatusCheck() {
+            // 每30秒检查一次连接状态
+            mqttStatusCheckInterval = setInterval(function() {
+                if (mqttClient && !isConnected) {
+                    console.log('检测到MQTT连接已断开，尝试重新连接...');
+                    // 尝试重新连接
+                    try {
+                        connectMQTT();
+                    } catch (e) {
+                        console.error('重新连接MQTT失败:', e);
+                    }
+                }
+            }, 30000);
+        }
+        
+        // 停止MQTT连接状态监控
+        function stopMQTTStatusCheck() {
+            if (mqttStatusCheckInterval) {
+                clearInterval(mqttStatusCheckInterval);
+                mqttStatusCheckInterval = null;
+            }
+        }
         function disconnectMQTT() {
+            // 停止状态监控
+            stopMQTTStatusCheck();
+            
             if (mqttClient) {
                 mqttClient.end();
                 mqttClient = null;
@@ -1867,7 +2057,7 @@
                     updateAlarmDataTable();
                 }
                 
-                updateDeviceDataTable();
+                debouncedUpdateDeviceDataTable();
                 updateHistoryDeviceSelect();
                 updateOverviewStats();
                 
@@ -1943,27 +2133,38 @@
                 
                 // 处理每个位号的历史数据
                 data.result.data.forEach(item => {
-                    const name = item.name;
-                    item.datalist.forEach(dataPoint => {
-                        // 转换时间戳为可读时间
-                        const timestamp = dataPoint.time;
-                        const date = new Date(timestamp);
-                        const timeString = date.toLocaleString('zh-CN');
-                        
-                        historyData.push({
-                            name: name,
-                            time: timeString,
-                            value: dataPoint.val,
-                            quality: dataPoint.q,
-                            type: dataPoint.type
+                    const name = item.tag || item.name; // 兼容tag和name字段
+                    const dataList = item.data || item.datalist; // 兼容data和datalist字段
+                    
+                    if (Array.isArray(dataList)) {
+                        dataList.forEach(dataPoint => {
+                            // 转换时间戳为可读时间
+                            const timestamp = dataPoint.time;
+                            const date = new Date(timestamp);
+                            const timeString = date.toLocaleString('zh-CN');
+                            
+                            historyData.push({
+                                name: name,
+                                time: timeString,
+                                value: dataPoint.value || dataPoint.val, // 兼容value和val字段
+                                quality: dataPoint.q || 192, // 默认质量值
+                                type: dataPoint.type || '历史数据' // 默认类型
+                            });
                         });
-                    });
+                    }
                 });
                 
                 // 更新历史数据表格
                 updateHistoryDataTable();
                 // 更新历史数据趋势图
                 updateHistoryChart();
+                
+                // 检查当前的显示模式，如果是表格模式，就更新表格数据
+                const tableDisplay = document.getElementById('table-display');
+                if (tableDisplay && !tableDisplay.classList.contains('hidden')) {
+                    updateHistoryTable();
+                }
+                
                 console.log('历史数据更新成功，共', historyData.length, '条记录');
             }
         }
@@ -2039,15 +2240,18 @@
                 
                 // 转换数据为量程百分比（归一化到0-100%）
                 const percentageData = [];
+                const originalData = []; // 存储原数据
                 allLabels.forEach((time, index) => {
                     const item = deviceItems.find(d => d.time === time);
                     if (!item) {
                         percentageData.push(null);
+                        originalData.push(null);
                         return;
                     }
                     
                     const value = parseFloat(item.value) || 0;
                     const dataType = item.type;
+                    originalData.push(value); // 存储原数据
                     console.log('处理数据点:', deviceName, '时间:', time, '数值:', item.value, '类型:', dataType);
                     
                     // 处理BOOL量（type为1）
@@ -2105,6 +2309,7 @@
                 datasets.push({
                     label: deviceName,
                     data: percentageData,
+                    originalData: originalData, // 存储原数据
                     borderColor: colors[colorIndex % colors.length],
                     backgroundColor: colors[colorIndex % colors.length] + '20',
                     borderWidth: 0.5, // 默认线条宽度为0.5px，与加粗的4px形成更强烈的对比
@@ -2135,6 +2340,8 @@
                     onResize: function(chart, size) {
                         // 图表大小变化时的回调函数
                         console.log('图表大小变化:', size);
+                        // 重新绑定图例点击事件
+                        setTimeout(bindLegendClickEvents, 100);
                     },
                     plugins: {
                         title: {
@@ -2146,7 +2353,9 @@
                             labels: {
                                 font: {
                                     size: 11
-                                }
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle'
                             }
                         },
                         tooltip: {
@@ -2157,6 +2366,7 @@
                                 label: function(context) {
                                     const label = context.dataset.label || '';
                                     const percentageValue = context.raw;
+                                    const originalValue = context.dataset.originalData && context.dataset.originalData[context.dataIndex];
                                     if (percentageValue === null || percentageValue === undefined) {
                                         return label + ': 无数据';
                                     }
@@ -2166,6 +2376,9 @@
                                     if (deviceInfo && (deviceInfo.type === '1' || deviceInfo.type === 1)) {
                                         // 对于BOOL量，显示ON或OFF
                                         return label + ': ' + (percentageValue === 100 ? 'ON' : 'OFF');
+                                    } else if (originalValue !== undefined) {
+                                        // 使用存储的原数据
+                                        return label + ': ' + originalValue.toFixed(2);
                                     } else if (deviceInfo && deviceInfo.minRange && deviceInfo.maxRange) {
                                         // 计算实际值
                                         const minRange = parseFloat(deviceInfo.minRange);
@@ -2173,8 +2386,8 @@
                                         const actualValue = minRange + (percentageValue / 100) * (maxRange - minRange);
                                         return label + ': ' + actualValue.toFixed(2);
                                     } else {
-                                        // 如果没有量程信息，直接显示百分比值
-                                        return label + ': ' + percentageValue.toFixed(2) + '%';
+                                        // 如果没有量程信息，直接显示原数据
+                                        return label + ': ' + percentageValue.toFixed(2);
                                     }
                                 }
                             }
@@ -2197,13 +2410,9 @@
                         },
                         y: {
                             title: {
-                                display: true,
-                                text: '0% 25% 50% 75% 100%',
-                                font: {
-                                    size: 12
-                                }
+                                display: false
                             },
-                            // 设置固定的0-100%范围
+                            // 设置固定的0-100范围
                             min: 0,
                             max: 100,
                             ticks: {
@@ -2211,7 +2420,7 @@
                                     size: 10
                                 },
                                 stepSize: 25,
-                                // 格式化Y轴标签，显示百分比
+                                // 默认显示百分比刻度
                                 callback: function(value) {
                                     return value.toFixed(0) + '%';
                                 }
@@ -2222,6 +2431,122 @@
                     }
                 }
             });
+            
+            // 绑定图例点击事件
+            setTimeout(bindLegendClickEvents, 500);
+        }
+        
+        // 绑定图例点击事件
+        function bindLegendClickEvents() {
+            console.log('开始绑定图例点击事件');
+            
+            // 查找图例元素
+            const legendItems = document.querySelectorAll('.chartjs-legend li');
+            console.log('找到图例项数量:', legendItems.length);
+            
+            legendItems.forEach((item, index) => {
+                // 移除现有的点击事件监听器
+                const newItem = item.cloneNode(true);
+                item.parentNode.replaceChild(newItem, item);
+                
+                // 添加新的点击事件监听器
+                newItem.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    // 获取图例文本
+                    const textElement = newItem.querySelector('span');
+                    if (!textElement) {
+                        console.log('未找到图例文本元素');
+                        return;
+                    }
+                    
+                    const selectedDeviceName = textElement.textContent.trim();
+                    console.log('图例点击:', selectedDeviceName);
+                    
+                    // 获取图表实例
+                    const chart = window.historyChart;
+                    if (!chart) {
+                        console.log('图表实例不存在');
+                        return;
+                    }
+                    
+                    // 检查是否已经选中了该设备
+                    const dataset = chart.data.datasets.find(d => d.label === selectedDeviceName);
+                    
+                    if (dataset) {
+                        console.log('找到数据集:', dataset.label, '当前线条宽度:', dataset.borderWidth);
+                        
+                        if (dataset.borderWidth === 4) {
+                            // 如果已经选中，则取消选中
+                            console.log('取消选中设备:', selectedDeviceName);
+                            
+                            // 重置所有数据集的线条宽度
+                            chart.data.datasets.forEach(d => {
+                                d.borderWidth = 1;
+                            });
+                            
+                            // 恢复默认的百分比显示
+                            chart.options.scales.y.ticks.callback = function(value) {
+                                return value.toFixed(0) + '%';
+                            };
+                        } else {
+                            // 如果未选中，则选中
+                            console.log('选中设备:', selectedDeviceName);
+                            
+                            // 重置所有数据集的线条宽度
+                            chart.data.datasets.forEach(d => {
+                                d.borderWidth = 1;
+                            });
+                            
+                            // 选中的设备，线条加粗
+                            dataset.borderWidth = 4;
+                            
+                            // 更新Y轴标签，显示选中设备的实际量程值
+                            const deviceInfo = window.deviceData && window.deviceData[selectedDeviceName];
+                            if (deviceInfo) {
+                                console.log('设备信息:', deviceInfo);
+                                
+                                // 检查是否为BOOL量
+                                if (deviceInfo.type === '1' || deviceInfo.type === 1) {
+                                    // 对于BOOL量，显示0 (OFF)和1 (ON)
+                                    chart.options.scales.y.ticks.callback = function(value) {
+                                        if (value === 0) return '0 (OFF)';
+                                        if (value === 100) return '1 (ON)';
+                                        return ''; // 隐藏中间值
+                                    };
+                                } else if (deviceInfo.minRange && deviceInfo.maxRange) {
+                                    // 对于其他类型，显示实际量程值
+                                    const minRange = parseFloat(deviceInfo.minRange);
+                                    const maxRange = parseFloat(deviceInfo.maxRange);
+                                    
+                                    // 更新Y轴标签格式化函数，显示实际值
+                                    chart.options.scales.y.ticks.callback = function(value) {
+                                        // 计算对应的实际值
+                                        const actualValue = minRange + (value / 100) * (maxRange - minRange);
+                                        return actualValue.toFixed(1);
+                                    };
+                                }
+                            } else {
+                                console.log('设备', selectedDeviceName, '无信息，使用百分比显示');
+                                // 如果设备没有信息，使用百分比显示
+                                chart.options.scales.y.ticks.callback = function(value) {
+                                    return value.toFixed(0) + '%';
+                                };
+                            }
+                        }
+                        
+                        // 更新图表
+                        chart.update();
+                        console.log('图表已更新');
+                    } else {
+                        console.log('未找到数据集:', selectedDeviceName);
+                    }
+                });
+                
+                console.log('已绑定图例点击事件:', index, newItem.textContent.trim());
+            });
+        }
             
             console.log('图表更新完成');
         }
@@ -2234,17 +2559,25 @@
             
             // 遍历所有数据集
             datasets.forEach(dataset => {
-                if (dataset.label === selectedDeviceName) {
+                if (selectedDeviceName && dataset.label === selectedDeviceName) {
                     // 选中的设备，线条加粗
                     dataset.borderWidth = 4;
                 } else {
-                    // 未选中的设备，线条设置为更细的宽度，与加粗线条形成强烈对比
-                    dataset.borderWidth = 0.5;
+                    // 未选中的设备，线条设置为默认宽度
+                    dataset.borderWidth = 1;
                 }
             });
             
-            // 更新Y轴标签，显示选中设备的实际量程值
-            updateYAxisLabels(selectedDeviceName);
+            // 更新Y轴标签
+            if (selectedDeviceName) {
+                // 显示选中设备的实际量程值
+                updateYAxisLabels(selectedDeviceName);
+            } else {
+                // 恢复默认的百分比显示
+                window.historyChart.options.scales.y.ticks.callback = function(value) {
+                    return value.toFixed(0) + '%';
+                };
+            }
             
             // 更新图表
             window.historyChart.update();
@@ -2260,7 +2593,6 @@
             if (!deviceInfo) {
                 console.log('设备', selectedDeviceName, '无信息');
                 // 如果设备没有信息，恢复默认的百分比显示
-                window.historyChart.options.scales.y.title.text = '0% 25% 50% 75% 100%';
                 window.historyChart.options.scales.y.ticks.callback = function(value) {
                     return value.toFixed(0) + '%';
                 };
@@ -2270,7 +2602,6 @@
             // 检查是否为BOOL量
             if (deviceInfo.type === '1' || deviceInfo.type === 1) {
                 // 对于BOOL量，显示0 (OFF)和1 (ON)
-                window.historyChart.options.scales.y.title.text = `${selectedDeviceName} (BOOL)`;
                 window.historyChart.options.scales.y.ticks.callback = function(value) {
                     if (value === 0) return '0 (OFF)';
                     if (value === 100) return '1 (ON)';
@@ -2281,10 +2612,6 @@
                 const minRange = parseFloat(deviceInfo.minRange);
                 const maxRange = parseFloat(deviceInfo.maxRange);
                 
-                // 更新Y轴标题，显示选中设备的名称和实际量程值
-                const yAxisTitle = `${selectedDeviceName} (${minRange}~${maxRange})`;
-                window.historyChart.options.scales.y.title.text = yAxisTitle;
-                
                 // 更新Y轴标签格式化函数，显示实际值
                 window.historyChart.options.scales.y.ticks.callback = function(value) {
                     // 计算对应的实际值
@@ -2293,7 +2620,6 @@
                 };
             } else {
                 // 如果设备没有量程信息，恢复默认的百分比显示
-                window.historyChart.options.scales.y.title.text = '0% 25% 50% 75% 100%';
                 window.historyChart.options.scales.y.ticks.callback = function(value) {
                     return value.toFixed(0) + '%';
                 };
@@ -2320,12 +2646,12 @@
             try {
                 console.log('从后端搜索设备:', searchTerm);
                 // 从后端API搜索设备
-                const response = await fetch(`http://localhost:3000/api/devices?search=${encodeURIComponent(searchTerm)}`);
+                const response = await fetch(`http://localhost:3001/api/devices/search?keyword=${encodeURIComponent(searchTerm)}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
                         // 从搜索结果中提取设备名称
-                        const matchingDevices = data.data.map(device => device.name);
+                        const matchingDevices = data.devices;
                         console.log('搜索结果:', matchingDevices);
                         
                         // 更新搜索结果下拉列表
@@ -2364,8 +2690,24 @@
                     
                     // 添加点击事件
                     resultItem.addEventListener('click', function() {
-                        // 将设备添加到选择列表
-                        addDeviceToSelection(device);
+                        const selectedDevicesContainer = document.getElementById('selected-devices-container');
+                        // 检查是否有标记为替换目标的设备
+                        const replacementTarget = selectedDevicesContainer.querySelector('[data-device].bg-yellow-100');
+                        
+                        if (replacementTarget) {
+                            // 有替换目标，替换设备
+                            const targetDeviceName = replacementTarget.getAttribute('data-device');
+                            // 移除原设备
+                            removeDeviceFromSelection(targetDeviceName);
+                            // 添加新设备
+                            addDeviceToSelection(device);
+                            console.log('已替换设备:', targetDeviceName, '->', device);
+                        } else {
+                            // 无替换目标，直接添加设备
+                            addDeviceToSelection(device);
+                            console.log('已添加设备:', device);
+                        }
+                        
                         // 清空搜索输入框
                         document.getElementById('device-search').value = '';
                         // 隐藏搜索结果
@@ -2428,25 +2770,24 @@
                 removeDeviceFromSelection(deviceName);
             });
             
-            // 添加设备标签点击事件，用于控制图表线条粗细
+            // 添加设备标签点击事件，用于标记为替换目标
             deviceTag.addEventListener('click', function() {
                 const deviceName = deviceTag.getAttribute('data-device');
-                // 设置当前设备为选中状态，其他设备为未选中状态
+                // 设置当前设备为替换目标，其他设备为普通状态
                 const allDeviceTags = selectedDevicesContainer.querySelectorAll('[data-device]');
                 allDeviceTags.forEach(tag => {
                     if (tag === deviceTag) {
-                        // 选中当前设备
+                        // 标记为替换目标
                         tag.classList.remove('bg-gray-50', 'border-gray-200');
-                        tag.classList.add('bg-blue-100', 'border-blue-300');
+                        tag.classList.add('bg-yellow-100', 'border-yellow-300');
                     } else {
-                        // 取消选中其他设备
-                        tag.classList.remove('bg-blue-100', 'border-blue-300');
+                        // 取消其他设备的替换目标标记
+                        tag.classList.remove('bg-yellow-100', 'border-yellow-300');
                         tag.classList.add('bg-gray-50', 'border-gray-200');
                     }
                 });
                 
-                // 更新图表线条粗细
-                updateChartLineWidth(deviceName);
+                console.log('已将设备标记为替换目标:', deviceName);
             });
             
             // 组装设备标签
@@ -2476,36 +2817,21 @@
             }
         }
         
-        // 启动MySQL后端服务连接状态检查
-        function startMySQLStatusCheck() {
-            setInterval(async () => {
-                try {
-                    const response = await fetch('/api/health');
-                    const data = await response.json();
-                    if (data.status === 'ok') {
-                        document.getElementById('mysql-primary-status').classList.remove('status-offline');
-                        document.getElementById('mysql-primary-status').classList.add('status-online');
-                    } else {
-                        document.getElementById('mysql-primary-status').classList.remove('status-online');
-                        document.getElementById('mysql-primary-status').classList.add('status-offline');
-                    }
-                } catch (error) {
-                    document.getElementById('mysql-primary-status').classList.remove('status-online');
-                    document.getElementById('mysql-primary-status').classList.add('status-offline');
-                }
-            }, 5000); // 每5秒检查一次
-        }
-        
         // 启动MySQL服务器状态检查（主备服务器）
         function startMySQLServersStatusCheck() {
             setInterval(async () => {
                 try {
-                    const response = await fetch('/api/mysql/status');
+                    const response = await fetch('http://localhost:3001/api/database/status');
+                    console.log('数据库状态请求响应状态:', response.status);
+                    if (!response.ok) {
+                        console.error('数据库状态请求失败:', response.statusText);
+                        return;
+                    }
                     const data = await response.json();
                     if (data.success) {
                         // 更新主服务器状态
                         const primaryStatus = document.getElementById('mysql-primary-status');
-                        if (data.data.primary) {
+                        if (data.primary.connected) {
                             primaryStatus.classList.remove('status-offline');
                             primaryStatus.classList.add('status-online');
                         } else {
@@ -2515,7 +2841,7 @@
                         
                         // 更新备用服务器状态
                         const backupStatus = document.getElementById('mysql-backup-status');
-                        if (data.data.backup) {
+                        if (data.backup.connected) {
                             backupStatus.classList.remove('status-offline');
                             backupStatus.classList.add('status-online');
                         } else {
@@ -2545,12 +2871,12 @@
             try {
                 console.log('从后端搜索设备:', searchTerm);
                 // 从后端API搜索设备
-                const response = await fetch(`http://localhost:3000/api/devices?search=${encodeURIComponent(searchTerm)}`);
+                const response = await fetch(`http://localhost:3001/api/devices/search?keyword=${encodeURIComponent(searchTerm)}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
                         // 从搜索结果中提取设备名称
-                        const matchingDevices = data.data.map(device => device.name);
+                        const matchingDevices = data.devices;
                         console.log('搜索结果:', matchingDevices);
                         
                         // 获取所有设备复选框位置
@@ -2690,34 +3016,103 @@
                 endTimeInput.value = new Date().toISOString().slice(0, 16);
             }
         }
+        // 优化后的设备数据表格更新函数
         function updateDeviceDataTable() {
             const tableBody = document.getElementById('device-data-table');
-            tableBody.innerHTML = '';
-            Object.entries(deviceData).forEach(([deviceName, data]) => {
+            const deviceEntries = Object.entries(deviceData);
+            
+            // 使用DocumentFragment减少DOM操作次数
+            const fragment = document.createDocumentFragment();
+            
+            deviceEntries.forEach(([deviceName, data]) => {
                 const row = document.createElement('tr');
                 row.className = 'bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm';
-                // 保留2位小数点显示value值
-                const formattedValue = typeof data.value === 'number' ? data.value.toFixed(2) : parseFloat(data.value)?.toFixed(2) || '0.00';
+                
+                // 保留2位小数点显示value值（使用MQTT收到的value值）
+                let formattedValue = '0.00';
+                if (typeof data.value === 'number' && !isNaN(data.value)) {
+                    formattedValue = data.value.toFixed(2);
+                } else {
+                    const parsedValue = parseFloat(data.value);
+                    if (!isNaN(parsedValue)) {
+                        formattedValue = parsedValue.toFixed(2);
+                    } else {
+                        formattedValue = '--';
+                    }
+                }
                 // 保留2位小数点显示HH、H、L、LL值
-                const formattedHH = typeof data.hhValue === 'number' ? data.hhValue.toFixed(2) : parseFloat(data.hhValue || data.HH)?.toFixed(2) || '--';
-                const formattedH = typeof data.hValue === 'number' ? data.hValue.toFixed(2) : parseFloat(data.hValue || data.H)?.toFixed(2) || '--';
-                const formattedL = typeof data.lValue === 'number' ? data.lValue.toFixed(2) : parseFloat(data.lValue || data.L)?.toFixed(2) || '--';
-                const formattedLL = typeof data.llValue === 'number' ? data.llValue.toFixed(2) : parseFloat(data.llValue || data.LL)?.toFixed(2) || '--';
+                const formatValue = (value) => {
+                    if (typeof value === 'number' && !isNaN(value)) {
+                        return value.toFixed(2);
+                    } else {
+                        const parsedValue = parseFloat(value);
+                        if (!isNaN(parsedValue)) {
+                            return parsedValue.toFixed(2);
+                        } else {
+                            return '--';
+                        }
+                    }
+                };
+                const formattedHH = formatValue(data.hhValue || data.HH);
+                const formattedH = formatValue(data.hValue || data.H);
+                const formattedL = formatValue(data.lValue || data.L);
+                const formattedLL = formatValue(data.llValue || data.LL);
+                
                 // 获取设备描述
                 const deviceDesc = data.desc || '--';
-                // 获取设备单位
-                const deviceUnit = data.unit || data.SI || '--';
+                
+                // 获取设备单位（只在不为空或NULL时使用）
+                const deviceUnit = (data.unit && data.unit !== 'NULL' && data.unit !== '--') ? data.unit : ((data.SI && data.SI !== 'NULL' && data.SI !== '--') ? data.SI : '');
+                
                 // 计算量程，格式为"VL~VH 单位"
-                const range = data.minRange !== null && data.maxRange !== null ? data.minRange + '~' + data.maxRange + ' ' + deviceUnit : '--';
-                // 实时数据带单位
-                const valueWithUnit = formattedValue + ' ' + deviceUnit;
-                row.innerHTML = '<td class="px-2 py-2 font-medium text-gray-900 dark:text-white text-center">' + deviceName + '</td><td class="px-2 py-2 text-center">' + deviceDesc + '</td><td class="px-2 py-2 text-center">' + valueWithUnit + '</td><td class="px-2 py-2 text-center">' + range + '</td><td class="px-2 py-2 text-center">' + formattedHH + '</td><td class="px-2 py-2 text-center">' + formattedH + '</td><td class="px-2 py-2 text-center">' + formattedL + '</td><td class="px-2 py-2 text-center">' + formattedLL + '</td>';
+                const range = data.minRange !== null && data.maxRange !== null ? data.minRange + '~' + data.maxRange + (deviceUnit ? ' ' + deviceUnit : '') : '--';
+                
+                // 实时数据带单位（只在单位不为空时显示）
+                const valueWithUnit = formattedValue + (deviceUnit ? ' ' + deviceUnit : '');
 
-
-
-                tableBody.appendChild(row);
+                // 获取厂区、重大危险源、安全仪表数据
+                const factory = data.factory !== null ? data.factory : '--';
+                const isMajorHazard = data.is_major_hazard !== null ? data.is_major_hazard : '--';
+                const isIsi = data.is_isi !== null ? data.is_isi : '--';
+                
+                // 使用模板字符串创建HTML内容
+                row.innerHTML = `
+                    <td class="px-2 py-2 font-medium text-gray-900 dark:text-white text-center">${deviceName}</td>
+                    <td class="px-2 py-2 text-center">${deviceDesc}</td>
+                    <td class="px-2 py-2 text-center">${valueWithUnit}</td>
+                    <td class="px-2 py-2 text-center">${range}</td>
+                    <td class="px-2 py-2 text-center">${formattedHH}</td>
+                    <td class="px-2 py-2 text-center">${formattedH}</td>
+                    <td class="px-2 py-2 text-center">${formattedL}</td>
+                    <td class="px-2 py-2 text-center">${formattedLL}</td>
+                    <td class="px-2 py-2 text-center">${factory}</td>
+                    <td class="px-2 py-2 text-center">${isMajorHazard}</td>
+                    <td class="px-2 py-2 text-center">${isIsi}</td>
+                `;
+                
+                fragment.appendChild(row);
             });
+            
+            // 一次性更新DOM
+            tableBody.innerHTML = '';
+            tableBody.appendChild(fragment);
         }
+        
+        // 防抖函数，用于优化频繁调用的函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // 使用防抖优化设备数据表格更新
+        const debouncedUpdateDeviceDataTable = debounce(updateDeviceDataTable, 100);
         function updateAlarmDataTable() {
             const tableBody = document.getElementById('alarm-data-table');
             tableBody.innerHTML = '';
@@ -2940,24 +3335,12 @@
         }
         
         /**
-         * 定期检查MySQL后端服务连接状态
-         */
-        function startMySQLStatusCheck() {
-            // 立即检查一次
-            checkMySQLConnectionStatus();
-            
-            // 每10秒检查一次
-            setInterval(checkMySQLConnectionStatus, 10000);
-            console.log('已启动MySQL后端服务连接状态检查，每10秒检查一次');
-        }
-        
-        /**
          * 从后端获取设备列表
          */
         async function fetchDevicesFromBackend() {
             try {
                 console.log('从后端获取设备列表...');
-                const response = await fetch('http://localhost:3000/api/devices');
+                const response = await fetch('http://localhost:3001/api/devices');
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -2978,6 +3361,9 @@
                                     llValue: device.LL !== undefined ? device.LL : null,
                                     minRange: device.VL !== undefined ? device.VL : (device.vl !== undefined ? device.vl : null),
                                     maxRange: device.VH !== undefined ? device.VH : (device.vh !== undefined ? device.vh : null),
+                                    factory: device.factory !== undefined ? device.factory : null,
+                                    is_major_hazard: device.is_major_hazard !== undefined ? device.is_major_hazard : null,
+                                    is_isi: device.is_isi !== undefined ? device.is_isi : null,
                                     alarmCount: 0,
                                     status: '正常',
                                     updateTime: new Date().toLocaleString('zh-CN')
@@ -2993,6 +3379,9 @@
                                 deviceData[device.name].llValue = device.LL !== undefined ? device.LL : deviceData[device.name].llValue;
                                 deviceData[device.name].minRange = device.VL !== undefined ? device.VL : (device.vl !== undefined ? device.vl : deviceData[device.name].minRange);
                                 deviceData[device.name].maxRange = device.VH !== undefined ? device.VH : (device.vh !== undefined ? device.vh : deviceData[device.name].maxRange);
+                                deviceData[device.name].factory = device.factory !== undefined ? device.factory : deviceData[device.name].factory;
+                                deviceData[device.name].is_major_hazard = device.is_major_hazard !== undefined ? device.is_major_hazard : deviceData[device.name].is_major_hazard;
+                                deviceData[device.name].is_isi = device.is_isi !== undefined ? device.is_isi : deviceData[device.name].is_isi;
                             }
                             console.log('设备', device.name, '存储的量程:', deviceData[device.name].minRange, '-', deviceData[device.name].maxRange);
                         });
@@ -3023,25 +3412,35 @@
          * @param {string} mode - 显示方式，可选值：'chart'（趋势图）或 'table'（表格）
          */
         function switchDisplayMode(mode) {
+            console.log('切换显示模式:', mode);
             const chartDisplay = document.getElementById('chart-display');
             const tableDisplay = document.getElementById('table-display');
             const chartModeBtn = document.getElementById('chart-mode-btn');
             const tableModeBtn = document.getElementById('table-mode-btn');
+            console.log('显示区域元素:', { chartDisplay, tableDisplay });
             
             if (mode === 'chart') {
                 // 显示趋势图，隐藏表格
-                chartDisplay.classList.remove('hidden');
-                tableDisplay.classList.add('hidden');
+                console.log('切换到趋势图模式');
+                chartDisplay.style.display = 'block';
+                tableDisplay.style.display = 'none';
                 
                 // 更新按钮样式
                 chartModeBtn.classList.remove('border', 'border-gray-300', 'text-gray-700');
                 chartModeBtn.classList.add('bg-primary', 'text-white');
                 tableModeBtn.classList.remove('bg-primary', 'text-white');
                 tableModeBtn.classList.add('border', 'border-gray-300', 'text-gray-700');
+                
+                // 如果有历史数据，更新图表
+                if (historyData.length > 0) {
+                    updateHistoryChart();
+                }
             } else if (mode === 'table') {
                 // 显示表格，隐藏趋势图
-                chartDisplay.classList.add('hidden');
-                tableDisplay.classList.remove('hidden');
+                console.log('切换到表格模式');
+                chartDisplay.style.display = 'none';
+                tableDisplay.style.display = 'block';
+                console.log('表格显示区域状态:', tableDisplay.style.display);
                 
                 // 更新按钮样式
                 tableModeBtn.classList.remove('border', 'border-gray-300', 'text-gray-700');
@@ -3050,6 +3449,7 @@
                 chartModeBtn.classList.add('border', 'border-gray-300', 'text-gray-700');
                 
                 // 更新表格数据
+                console.log('准备更新表格数据');
                 updateHistoryTable();
             }
         }
@@ -3116,17 +3516,24 @@
          * 功能：更新历史数据表格的内容，实现位号在行，时间在列的交叉表格
          */
         function updateHistoryTable() {
+            console.log('开始更新历史数据表格...');
             const table = document.querySelector('#table-display table');
             const tableHead = table.querySelector('thead tr');
             const tableBody = document.getElementById('history-table-body');
-            if (!tableBody || !tableHead) return;
+            console.log('表格元素获取结果:', { table, tableHead, tableBody });
+            if (!tableBody || !tableHead) {
+                console.error('表格元素获取失败');
+                return;
+            }
             
             // 清空表格
             tableHead.innerHTML = '';
             tableBody.innerHTML = '';
+            console.log('历史数据长度:', historyData.length);
             
             // 检查是否有历史数据
             if (historyData.length === 0) {
+                console.log('历史数据为空，显示空数据提示');
                 // 添加位号表头
                 const bitNoHeader = document.createElement('th');
                 bitNoHeader.className = 'px-3 py-2 sticky left-0 bg-gray-50 dark:bg-gray-700';
@@ -3141,8 +3548,10 @@
                 emptyCell.textContent = '无历史数据';
                 emptyRow.appendChild(emptyCell);
                 tableBody.appendChild(emptyRow);
+                console.log('空数据提示已添加');
                 return;
             }
+            console.log('历史数据:', historyData);
             
             // 提取所有唯一的时间点和位号
             const timeSet = new Set();
@@ -3156,6 +3565,8 @@
             // 转换为数组并排序
             const timeArray = Array.from(timeSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
             const deviceArray = Array.from(deviceSet).sort();
+            console.log('时间点数组:', timeArray);
+            console.log('设备位号数组:', deviceArray);
             
             // 构建时间到索引的映射
             const timeToIndex = new Map();
@@ -3174,13 +3585,16 @@
                 });
                 deviceDataMap.set(device, deviceData);
             });
+            console.log('设备数据映射:', deviceDataMap);
             
             // 更新表头
+            console.log('开始更新表头...');
             // 添加位号表头
             const bitNoHeader = document.createElement('th');
             bitNoHeader.className = 'px-3 py-2 sticky left-0 bg-gray-50 dark:bg-gray-700';
             bitNoHeader.textContent = '位号';
             tableHead.appendChild(bitNoHeader);
+            console.log('位号表头已添加');
             
             // 添加时间表头
             timeArray.forEach(time => {
@@ -3196,8 +3610,10 @@
                 timeHeader.textContent = formattedTime;
                 tableHead.appendChild(timeHeader);
             });
+            console.log('时间表头已添加');
             
             // 更新表格主体
+            console.log('开始更新表格主体...');
             deviceArray.forEach(device => {
                 const row = document.createElement('tr');
                 row.className = 'bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm';
@@ -3228,6 +3644,7 @@
                 
                 tableBody.appendChild(row);
             });
+            console.log('表格主体已更新完成');
         }
         
         /**
@@ -3476,92 +3893,92 @@
         window.simpleQuery = function() {
             console.log('=====================================');
             console.log('简单查询函数被调用');
-            console.log('mqttClient:', mqttClient);
-            console.log('mqttClient.connected:', mqttClient ? mqttClient.connected : '未初始化');
             
-            if (mqttClient && mqttClient.connected) {
-                console.log('MQTT连接正常，开始构建查询消息');
-                
-                // 获取所有已添加的设备（忽略选中状态）
-                const selectedDevicesContainer = document.getElementById('selected-devices-container');
-                let deviceNames = [];
-                
-                if (selectedDevicesContainer) {
-                    const allDeviceTags = selectedDevicesContainer.querySelectorAll('[data-device]');
-                    if (allDeviceTags.length > 0) {
-                        // 总是使用所有已添加的设备，无论是否被选中
-                        allDeviceTags.forEach(tag => {
-                            deviceNames.push(tag.getAttribute('data-device'));
-                        });
-                    } else {
-                        // 如果没有添加任何设备，使用所有实时设备名称
-                        deviceNames = Object.keys(deviceData);
-                    }
+            // 获取所有已添加的设备（忽略选中状态）
+            const selectedDevicesContainer = document.getElementById('selected-devices-container');
+            let deviceNames = [];
+            
+            if (selectedDevicesContainer) {
+                const allDeviceTags = selectedDevicesContainer.querySelectorAll('[data-device]');
+                if (allDeviceTags.length > 0) {
+                    // 总是使用所有已添加的设备，无论是否被选中
+                    allDeviceTags.forEach(tag => {
+                        deviceNames.push(tag.getAttribute('data-device'));
+                    });
                 } else {
-                    // 如果没有找到设备容器，使用默认值
-                    deviceNames = Object.keys(deviceData).length > 0 ? Object.keys(deviceData) : ['test'];
+                    // 如果没有添加任何设备，使用所有实时设备名称
+                    deviceNames = Object.keys(deviceData);
                 }
-                
-                console.log('查询的设备:', deviceNames);
-                
-                console.log('查询的设备名称数组:', deviceNames);
-                
-                // 获取开始时间和结束时间
-                const startTimeInput = document.getElementById('history-start-time');
-                const endTimeInput = document.getElementById('history-end-time');
-                
-                let beginTime = Date.now() - 3600000; // 默认1小时前
-                let endTime = Date.now(); // 默认当前时间
-                
-                if (startTimeInput && startTimeInput.value) {
-                    beginTime = new Date(startTimeInput.value).getTime();
-                }
-                
-                if (endTimeInput && endTimeInput.value) {
-                    endTime = new Date(endTimeInput.value).getTime();
-                }
-                
-                console.log('开始时间:', new Date(beginTime).toLocaleString(), '结束时间:', new Date(endTime).toLocaleString());
-                
-                // 构建查询消息
-                const queryMessage = {
-                    method: "HistoryData",
-                    topic: "hisdatatest",
-                    names: deviceNames,
-                    seq: 1,
-                    mode: 0,
-                    begintime: beginTime,
-                    endtime: endTime,
-                    count: 20,
-                    interval: 1000,
-                    timeout: 20000,
-                    clientId: clientId // 添加客户端ID
-                };
-                
-                console.log('构建的查询消息:', JSON.stringify(queryMessage));
-                
-                // 直接使用mqttClient发布
-                console.log('开始发布消息...');
-                try {
-                        const result = mqttClient.publish('SupconScadaHisData', JSON.stringify(queryMessage), function(err) {
-                            console.log('publish回调被调用');
-                            if (!err) {
-                                console.log('消息发布成功!');
-                                // 移除成功提示，直接显示数据
-                            } else {
-                                console.error('消息发布失败:', err);
-                                alert('消息发布失败: ' + err);
-                            }
-                        });
-                        console.log('发布结果:', result);
-                    } catch (error) {
-                        console.error('发布时发生异常:', error);
-                        alert('发布时发生异常: ' + error);
-                    }
             } else {
-                console.error('MQTT未连接或客户端未初始化');
-                alert('请先连接MQTT服务器');
+                // 如果没有找到设备容器，使用默认值
+                deviceNames = Object.keys(deviceData).length > 0 ? Object.keys(deviceData) : ['test'];
             }
+            
+            console.log('查询的设备:', deviceNames);
+            
+            // 获取开始时间和结束时间
+            const startTimeInput = document.getElementById('history-start-time');
+            const endTimeInput = document.getElementById('history-end-time');
+            
+            let beginTime = Date.now() - 3600000; // 默认1小时前
+            let endTime = Date.now(); // 默认当前时间
+            
+            if (startTimeInput && startTimeInput.value) {
+                beginTime = new Date(startTimeInput.value).getTime();
+            }
+            
+            if (endTimeInput && endTimeInput.value) {
+                endTime = new Date(endTimeInput.value).getTime();
+            }
+            
+            console.log('开始时间:', new Date(beginTime).toLocaleString(), '结束时间:', new Date(endTime).toLocaleString());
+            
+            // 通过HTTP API获取历史数据
+            console.log('通过HTTP API获取历史数据...');
+            
+            // 构建查询参数
+            const queryParams = {
+                deviceTags: deviceNames,
+                startTime: beginTime,
+                endTime: endTime,
+                clientId: clientId
+            };
+            
+            console.log('构建的查询参数:', JSON.stringify(queryParams));
+            
+            // 发送HTTP请求
+            fetch('http://localhost:3001/api/history/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(queryParams)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('HTTP API响应:', data);
+                
+                if (data.code === 0 && data.result && data.result.data) {
+                    // 处理返回的历史数据
+                    const historyResponse = {
+                        result: {
+                            data: data.result.data
+                        },
+                        clientId: data.clientId
+                    };
+                    
+                    processHistoryData(historyResponse);
+                    console.log('历史数据查询成功');
+                } else {
+                    console.error('历史数据查询失败:', data.msg || '未知错误');
+                    alert('历史数据查询失败: ' + (data.msg || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('HTTP请求失败:', error);
+                alert('HTTP请求失败: ' + error.message);
+            });
+            
             console.log('=====================================');
         };
     </script>

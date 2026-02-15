@@ -2,10 +2,10 @@
   "name": "industrial-visualization-backend",
   "version": "1.0.0",
   "description": "Backend service for industrial visualization system",
-  "main": "server.js",
+  "main": "backend.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node backend.js",
+    "dev": "nodemon backend.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

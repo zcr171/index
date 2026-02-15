@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工业互联网系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="src/css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0ea5e9',
+                        secondary: '#1e40af',
+                        dark: '#0f172a',
+                        light: '#f1f5f9',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        success: '#10b981'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+    <!-- 登录界面 -->
+    <div id="login-page" class="flex h-screen overflow-hidden">
+        <div class="sidebar w-80 flex flex-col py-12 px-6 text-white z-10">
+            <div class="mb-16 text-center">
+                <h1 class="text-2xl font-bold">工业互联网</h1>
+                <p class="text-xs text-gray-400">Industrial Internet</p>
+            </div>
+            <div class="flex flex-col space-y-6 w-full">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">用户名</label>
+                        <input type="text" id="login-username" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入用户名" value="webadmin">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">密码</label>
+                        <input type="password" id="login-password" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="请输入密码" value="admin123">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember-me" class="w-4 h-4 text-primary focus:ring-primary border-gray-600 rounded">
+                            <label for="remember-me" class="ml-2 text-xs text-gray-400">记住我</label>
+                        </div>
+                        <a href="#" class="text-xs text-primary hover:underline">忘记密码?</a>
+                    </div>
+                    <button id="login-btn" class="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                        <i class="fa fa-sign-in mr-1"></i> 登录
+                    </button>
+                </div>
+            </div>
+            <div class="mt-auto text-center">
+                <p class="text-xs text-gray-400">© 2026 工业互联网系统</p>
+            </div>
+        </div>
+        <!-- 全页面背景图片 -->
+        <div class="flex-1 relative">
+            <img src="images/factory.jpg" alt="工业工厂" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3);"></div>
+            <div style="position: absolute; bottom: 40px; left: 40px; color: white; z-index: 1;">
+                <h2 class="text-2xl font-bold mb-2">欢迎使用工业互联网系统</h2>
+                <p class="text-sm">请登录以访问系统功能</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主系统界面 (默认隐藏) -->
+    <div id="main-page" class="flex h-screen overflow-hidden hidden">
+        <div class="sidebar w-40 flex flex-col py-6 px-2 text-white">
+            <div class="mb-12 text-center">
+                <h1 class="text-xl font-bold">工业互联网</h1>
+                <p class="text-xs text-gray-400">Industrial Internet</p>
+            </div>
+            <div class="flex flex-col space-y-6 w-full">
+                <button class="menu-item active flex items-center space-x-2 px-2 py-2 rounded-lg bg-primary/20 text-white transition-all duration-300" data-target="overview">
+                    <i class="fa fa-dashboard text-sm"></i>
+                    <span class="text-sm font-medium">综合概况</span>
+                </button>
+                <button class="menu-item flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="realtime-data">
+                    <i class="fa fa-tachometer text-sm"></i>
+                    <span class="text-sm font-medium">实时数据</span>
+                </button>
+                <button class="menu-item flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="alarm-data">
+                    <i class="fa fa-bell text-sm"></i>
+                    <span class="text-sm font-medium">实时报警数据</span>
+                </button>
+                <button class="menu-item flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="history-data">
+                    <i class="fa fa-history text-sm"></i>
+                    <span class="text-sm font-medium">历史数据</span>
+                </button>
+                <button class="menu-item flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="history-alarm-data">
+                    <i class="fa fa-exclamation-circle text-sm"></i>
+                    <span class="text-sm font-medium">历史报警数据</span>
+                </button>
+            </div>
+            <div class="mt-auto w-full">
+                <div class="px-4 py-3 bg-gray-700/50 rounded-lg">
+                    <div class="flex flex-col space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">实时库</span>
+                            <div class="flex space-x-2">
+                                <div id="mqtt-primary-status" class="status-indicator status-offline"></div>
+                                <div id="mqtt-backup-status" class="status-indicator status-offline"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">数据库</span>
+                            <div class="flex space-x-2">
+                                <div id="mysql-primary-status" class="status-indicator status-offline"></div>
+                                <div id="mysql-backup-status" class="status-indicator status-offline"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mt-2">
+                        <button id="config-btn" class="text-sm text-primary hover:underline">
+                            <i class="fa fa-cog mr-1"></i> 配置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 flex flex-col overflow-hidden overflow-x-hidden">
+            <header class="bg-white shadow-sm py-2 px-6 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h2 id="page-title" class="text-lg font-bold text-gray-800">综合概况</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">系统时间: </span>
+                        <span id="system-time" class="text-sm font-medium text-gray-800"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">登录人: </span>
+                        <span id="login-user" class="text-sm font-medium text-gray-800">未登录</span>
+                    </div>
+                    <button id="logout-btn" class="px-3 py-1 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fa fa-sign-out mr-1"></i> 注销
+                    </button>
+                </div>
+            </header>
+            <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <div id="overview" class="page-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">系统状态</span>
+                                <i class="fa fa-heartbeat text-primary text-sm"></i>
+                            </div>
+                            <div class="data-value">
+                                <span class="status-indicator status-online"></span>
+                                <span>正常运行</span>
+                            </div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                运行时间: <span id="system-uptime">0天 00:00:00</span>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">设备总数</span>
+                                <i class="fa fa-industry text-primary text-sm"></i>
+                            </div>
+                            <div class="data-value" id="total-devices-overview">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>5.2%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">在线设备</span>
+                                <i class="fa fa-check-circle text-success text-sm"></i>
+                            </div>
+                            <div class="data-value" id="online-devices-overview">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>2.1%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">全厂自控率</span>
+                                <i class="fa fa-sliders text-primary text-sm"></i>
+                            </div>
+                            <div class="data-value" id="auto-control-rate">0%</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>1.5%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">报警数量</span>
+                                <i class="fa fa-exclamation-triangle text-warning text-sm"></i>
+                            </div>
+                            <div class="data-value" id="alarm-count-overview">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-danger"><i class="fa fa-arrow-up mr-1"></i>12.5%</span> 较昨日
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">设备状态分布</span>
+                                <i class="fa fa-pie-chart text-primary text-sm"></i>
+                            </div>
+                            <div class="p-4">
+                                <canvas id="device-status-chart" height="250"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">报警类型分布</span>
+                                <i class="fa fa-bar-chart text-primary text-sm"></i>
+                            </div>
+                            <div class="p-4">
+                                <canvas id="alarm-type-chart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-6">
+                        <div class="card-header">
+                            <span class="text-sm">最新报警</span>
+                            <i class="fa fa-bell text-primary text-sm"></i>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3">报警时间</th>
+                                        <th scope="col" class="px-6 py-3">设备名称</th>
+                                        <th scope="col" class="px-6 py-3">报警类型</th>
+                                        <th scope="col" class="px-6 py-3">报警值</th>
+                                        <th scope="col" class="px-6 py-3">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="latest-alarms-table">
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">暂无报警数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="text-sm">系统消息</span>
+                            <i class="fa fa-bullhorn text-primary text-sm"></i>
+                        </div>
+                        <div class="p-4 space-y-4">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <i class="fa fa-info text-primary"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-800">系统更新</h4>
+                                    <p class="text-xs text-gray-500">系统已成功更新到最新版本 v1.0.1</p>
+                                    <p class="text-xs text-gray-400 mt-1">2026-02-02 10:30:00</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+                                    <i class="fa fa-check text-success"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-800">数据库备份</h4>
+                                    <p class="text-xs text-gray-500">系统已完成每日数据库备份</p>
+                                    <p class="text-xs text-gray-400 mt-1">2026-02-02 00:00:00</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
+                                    <i class="fa fa-exclamation text-warning"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-800">磁盘空间警告</h4>
+                                    <p class="text-xs text-gray-500">系统磁盘空间使用已达到80%，请及时清理</p>
+                                    <p class="text-xs text-gray-400 mt-1">2026-02-01 16:45:00</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="realtime-data" class="page-content hidden overflow-hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                            <span class="text-sm">设备总数</span>
+                            <i class="fa fa-industry text-primary text-sm"></i>
+                        </div>
+                            <div class="data-value" id="total-devices">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>5.2%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">在线设备</span>
+                                <i class="fa fa-check-circle text-success text-sm"></i>
+                            </div>
+                            <div class="data-value" id="online-devices">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>2.1%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">报警数量</span>
+                                <i class="fa fa-exclamation-triangle text-warning text-sm"></i>
+                            </div>
+                            <div class="data-value" id="alarm-count">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-danger"><i class="fa fa-arrow-up mr-1"></i>12.5%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">系统状态</span>
+                                <i class="fa fa-heartbeat text-primary text-sm"></i>
+                            </div>
+                            <div class="data-value">
+                                <span class="status-indicator status-online"></span>
+                                <span>正常运行</span>
+                            </div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                运行时间: <span id="system-uptime">0天 00:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="text-sm">设备实时数据</span>
+                            <div class="flex space-x-1">
+                                <button class="text-xs px-2 py-0.5 rounded bg-primary text-white hover:bg-primary/90 transition-colors">
+                                    <i class="fa fa-refresh mr-1 text-xs"></i> 刷新
+                                </button>
+                                <button onclick="exportDeviceList()" class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+                                    <i class="fa fa-download mr-1 text-xs"></i> 导出设备清单
+                                </button>
+                            </div>
+                        </div>
+                        <div class="max-h-[calc(100vh-320px)] overflow-x-auto overflow-y-auto">
+                            <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300 data-table">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 sticky top-0">
+                                    <tr>
+                                        <th scope="col" class="px-3 py-2 text-center">位号</th>
+                                        <th scope="col" class="px-3 py-2 text-center">描述</th>
+                                        <th scope="col" class="px-3 py-2 text-center">实时数据</th>
+                                        <th scope="col" class="px-3 py-2 text-center">量程</th>
+                                        <th scope="col" class="px-3 py-2 text-center">高高限</th>
+                                        <th scope="col" class="px-3 py-2 text-center">高限</th>
+                                        <th scope="col" class="px-3 py-2 text-center">低限</th>
+                                        <th scope="col" class="px-3 py-2 text-center">低低限</th>
+                                        <th scope="col" class="px-3 py-2 text-center">厂区</th>
+                                        <th scope="col" class="px-3 py-2 text-center">重大危险源</th>
+                                        <th scope="col" class="px-3 py-2 text-center">安全仪表</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="device-data-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="alarm-data" class="page-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="card">
+                            <div class="card-header">
+                            <span class="text-sm">总报警数</span>
+                            <i class="fa fa-exclamation-circle text-danger text-sm"></i>
+                        </div>
+                            <div class="data-value" id="total-alarms">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-danger"><i class="fa fa-arrow-up mr-1"></i>12.5%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">未处理报警</span>
+                                <i class="fa fa-clock-o text-warning text-sm"></i>
+                            </div>
+                            <div class="data-value" id="unprocessed-alarms">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-danger"><i class="fa fa-arrow-up mr-1"></i>8.3%</span> 较昨日
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="text-sm">已处理报警</span>
+                                <i class="fa fa-check text-success text-sm"></i>
+                            </div>
+                            <div class="data-value" id="processed-alarms">0</div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                <span class="text-success"><i class="fa fa-arrow-up mr-1"></i>15.2%</span> 较昨日
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="text-sm">实时报警数据</span>
+                            <div class="flex space-x-1">
+                                <button class="text-xs px-2 py-0.5 rounded bg-primary text-white hover:bg-primary/90 transition-colors">
+                                    <i class="fa fa-filter mr-1 text-xs"></i> 筛选
+                                </button>
+                                <button class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+                                    <i class="fa fa-download mr-1 text-xs"></i> 导出
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left text-gray-700 dark:text-gray-300">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
+                                    <tr>
+                                        <th scope="col" class="px-2 py-1">报警时间</th>
+                                        <th scope="col" class="px-2 py-1">设备名称</th>
+                                        <th scope="col" class="px-2 py-1">描述</th>
+                                        <th scope="col" class="px-2 py-1">报警类型</th>
+                                        <th scope="col" class="px-2 py-1">报警值</th>
+                                        <th scope="col" class="px-2 py-1">报警阈值</th>
+                                        <th scope="col" class="px-2 py-1">状态</th>
+                                        <th scope="col" class="px-2 py-1">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alarm-data-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="history-alarm-data" class="page-content hidden">
+                    <div class="card mb-1 w-full">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-0 p-1">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">已选设备</label>
+                                <div id="selected-alarm-devices-container" class="grid grid-cols-2 gap-1 max-h-16 border border-gray-200 rounded-lg p-1">
+                                    <!-- 已选设备标签将在这里动态添加 -->
+                                    <div class="col-span-2 text-center text-xs text-gray-400 py-2" id="no-alarm-devices-message">
+                                        无已选设备
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">搜索</label>
+                                <div class="relative mb-0.5">
+                                    <div class="flex space-x-1">
+                                        <input type="text" id="alarm-device-search" placeholder="搜索设备..." class="flex-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-1">
+                                        <button onclick="searchAlarmDevices()" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 搜索
+                                        </button>
+                                    </div>
+                                    <!-- 搜索结果下拉列表 -->
+                                    <div id="alarm-search-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">开始时间</label>
+                                            <input type="datetime-local" id="alarm-history-start-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <button onclick="resetAlarmDeviceSelection()" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                                <i class="fa fa-refresh mr-1"></i> 重置
+                                            </button>
+                                            <button onclick="simpleQuery()" class="px-2 py-0.5 text-xs bg-primary text-white rounded-lg hover:bg-gray-50 transition-colors">
+                                                查询
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">结束时间</label>
+                                            <input type="datetime-local" id="alarm-history-end-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex items-center space-x-1 flex-wrap">
+                                            <label class="block text-xs font-medium text-gray-600">报警类型</label>
+                                            <select id="alarm-type-select" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                                <option value="all">全部类型</option>
+                                                <option value="high">高值报警</option>
+                                                <option value="low">低值报警</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="text-sm">历史报警记录</span>
+                            <div class="flex space-x-1">
+                                <button class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+                                    <i class="fa fa-download mr-1 text-xs"></i> 导出CSV
+                                </button>
+                                <button class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+                                    <i class="fa fa-print mr-1 text-xs"></i> 打印
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3">报警时间</th>
+                                        <th scope="col" class="px-6 py-3">设备名称</th>
+                                        <th scope="col" class="px-6 py-3">报警类型</th>
+                                        <th scope="col" class="px-6 py-3">报警值</th>
+                                        <th scope="col" class="px-6 py-3">处理时间</th>
+                                        <th scope="col" class="px-6 py-3">处理人</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-alarm-data-table">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="flex items-center justify-between mt-4 px-4">
+                            <div class="text-sm text-gray-500">
+                                显示 1 至 10 条，共 100 条
+                            </div>
+                            <div class="flex space-x-1">
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50" disabled>
+                                    <i class="fa fa-chevron-left"></i>
+                                </button>
+                                <button class="px-3 py-1 rounded border border-primary bg-primary text-white">1</button>
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">2</button>
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">3</button>
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">...</button>
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">10</button>
+                                <button class="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="history-data" class="page-content hidden">
+                    <div class="card mb-1 w-full">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-0 p-1">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">已选位号</label>
+                                <div id="selected-devices-container" class="grid grid-cols-2 gap-1 max-h-16 border border-gray-200 rounded-lg p-1">
+                                    <!-- 已选设备标签将在这里动态添加 -->
+                                    <div class="col-span-2 text-center text-xs text-gray-400 py-2" id="no-devices-message">
+                                        无已选位号
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">搜索</label>
+                                <div class="relative mb-0.5">
+                                    <div class="flex space-x-1">
+                                        <input type="text" id="device-search" placeholder="搜索位号..." class="flex-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-1">
+                                        <button onclick="searchDevices()" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 搜索
+                                        </button>
+                                    </div>
+                                    <!-- 搜索结果下拉列表 -->
+                                    <div id="search-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">开始时间</label>
+                                            <input type="datetime-local" id="history-start-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <button onclick="resetDeviceSelection()" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                                <i class="fa fa-refresh mr-1"></i> 重置
+                                            </button>
+                                            <button onclick="simpleQuery()" class="px-2 py-0.5 text-xs bg-primary text-white rounded-lg hover:bg-gray-50 transition-colors">
+                                                查询
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-end gap-1 flex-wrap">
+                                        <div class="flex-1 min-w-[120px]">
+                                            <label class="block text-xs font-medium text-gray-600 mb-0.25">结束时间</label>
+                                            <input type="datetime-local" id="history-end-time" class="w-full px-1 py-0.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div class="flex items-center space-x-1 flex-wrap">
+                                            <label class="block text-xs font-medium text-gray-600">显示方式</label>
+                                            <button onclick="switchDisplayMode('chart')" id="chart-mode-btn" class="px-2 py-0.5 text-xs bg-primary text-white rounded-lg hover:bg-gray-50 transition-colors">
+                                                趋势图
+                                            </button>
+                                            <button onclick="switchDisplayMode('table')" id="table-mode-btn" class="px-2 py-0.5 text-xs border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                                表格
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="chart-display" class="card w-full" style="height: 400px;">
+                        <div class="p-0 h-full">
+                            <canvas id="history-chart" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                    <div id="table-display" class="card w-full" style="height: 50vh; display: none;">
+                        <div class="p-0 h-full overflow-x-auto overflow-y-auto">
+                            <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300 data-table">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 sticky top-0">
+                                    <tr>
+                                        <th scope="col" class="px-3 py-2 sticky left-0 bg-gray-50 dark:bg-gray-700">位号</th>
+                                        <th scope="col" class="px-3 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" id="config-modal">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800">连接配置</h3>
+                <button id="close-config-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 切换按钮 -->
+            <div class="flex mb-4 border-b border-gray-200">
+                <button id="mqtt-tab" class="px-4 py-2 border-b-2 border-primary text-primary font-medium">MQTT</button>
+                <button id="mysql-tab" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">MySQL</button>
+                <button id="user-tab" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">用户管理</button>
+            </div>
+            
+            <!-- MQTT配置表单 -->
+            <div id="mqtt-config" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">服务器地址</label>
+                    <input type="text" id="mqtt-host" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="192.168.10.179">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                    <input type="text" id="mqtt-port" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="15675">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" id="mqtt-username" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="mqtest">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" id="mqtt-password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="mqtest">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">客户端 ID</label>
+                    <input type="text" id="mqtt-client-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" readonly>
+                </div>
+            </div>
+            
+            <!-- MySQL配置表单 -->
+            <div id="mysql-config" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">服务器地址</label>
+                    <input type="text" id="mysql-host" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="192.168.10.179">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                    <input type="text" id="mysql-port" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="3306">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">数据库名</label>
+                    <input type="text" id="mysql-database" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="webtest">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" id="mysql-username" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="webuser">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" id="mysql-password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="webuser">
+                </div>
+            </div>
+            
+            <!-- 用户管理表单 -->
+            <div id="user-config" class="space-y-4 hidden">
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">导入用户</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">选择CSV文件</label>
+                            <input type="file" id="csv-file" accept=".csv" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-xs text-gray-500">
+                                CSV文件格式要求：
+                                <br>账号,密码,行政级别,权限,厂区
+                                <br>权限选项：admin, operator, viewer, maint
+                                <br>示例：user1,123456,经理,admin,一厂
+                            </p>
+                        </div>
+                        <button id="import-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                            <i class="fa fa-upload mr-1"></i> 导入
+                        </button>
+                    </div>
+                </div>
+                <div id="import-result" class="hidden">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">导入结果</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div id="import-message" class="mb-4"></div>
+                        <div id="success-list" class="mb-4 hidden">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">成功导入</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-gray-700">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-2">账号</th>
+                                            <th scope="col" class="px-3 py-2">权限</th>
+                                            <th scope="col" class="px-3 py-2">行政级别</th>
+                                            <th scope="col" class="px-3 py-2">厂区</th>
+                                            <th scope="col" class="px-3 py-2">状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="success-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="error-list" class="mb-4 hidden">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">导入失败</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-gray-700">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-2">账号</th>
+                                            <th scope="col" class="px-3 py-2">错误信息</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="error-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6">
+                <button id="disconnect-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-danger hover:bg-red-50 transition-colors">
+                    <i class="fa fa-unplug mr-1"></i> 断开
+                </button>
+                <button id="connect-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-success hover:bg-green-50 transition-colors">
+                    <i class="fa fa-plug mr-1"></i> 连接
+                </button>
+                <button id="cancel-config" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <button id="save-config" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript文件 -->
+    <script src="src/js/config.js"></script>
+    <script src="src/js/login.js"></script>
+    <script src="src/js/mqtt.js"></script>
+    <script src="src/js/device-data.js"></script>
+    <script src="src/js/alarm-data.js"></script>
+    <script src="src/js/history-data.js"></script>
+    <script src="src/js/charts.js"></script>
+    <script src="src/js/main.js"></script>
+</body>
+</html>

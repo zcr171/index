@@ -1,0 +1,121 @@
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #f0f4f8;
+}
+.sidebar {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    width: 160px;
+}
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) rgba(241, 245, 249, 0.1);
+}
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.1);
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 20px;
+}
+.content-auto {
+    content-visibility: auto;
+}
+.sidebar-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    background-color: rgba(14, 165, 233, 0.1);
+    color: rgb(14, 165, 233);
+    transition: all 300ms ease-in-out;
+}
+.sidebar-icon:hover {
+    background-color: rgba(14, 165, 233, 0.2);
+    transform: scale(1.1);
+}
+.sidebar-icon.active {
+    background-color: rgb(14, 165, 233);
+    color: white;
+}
+.card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    transition: all 300ms ease-in-out;
+}
+.card:hover {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+.card-header {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: rgb(31, 41, 55);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.data-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgb(14, 165, 233);
+}
+.status-indicator {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+.status-online {
+    background-color: rgb(16, 185, 129);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.status-offline {
+    background-color: rgb(239, 68, 68);
+}
+.status-warning {
+    background-color: rgb(245, 158, 11);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 表格列宽调整功能 */
+.resizable-table {
+    position: relative;
+}
+.resizable-table th {
+    position: relative;
+    user-select: none;
+}
+.resizable-table th::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: col-resize;
+}
+.resizable-table th:hover::after {
+    background-color: rgba(14, 165, 233, 0.5);
+}
+.resizing {
+    cursor: col-resize !important;
+}
+.resizing th::after {
+    background-color: rgb(14, 165, 233) !important;
+}
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
