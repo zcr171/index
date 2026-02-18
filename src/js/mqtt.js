@@ -74,7 +74,6 @@ function connectMQTT() {
             'alarm/report',
             'Raelalarm',
             'realalarmtest',
-            '5',
             'hisdatatest'
         ];
         

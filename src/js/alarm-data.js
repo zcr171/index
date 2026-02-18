@@ -51,13 +51,17 @@ function updateAlarmDataTable() {
         
         alarmData.forEach(alarm => {
             const row = document.createElement('tr');
+            // 格式化数字为保留两位小数
+            const formattedValue = isNaN(alarm.value) ? '--' : parseFloat(alarm.value).toFixed(2);
+            const formattedLimit = isNaN(alarm.limit) ? (alarm.limit || '--') : parseFloat(alarm.limit).toFixed(2);
+            
             row.innerHTML = `
                 <td class="px-2 py-1">${alarm.time}</td>
                 <td class="px-2 py-1">${alarm.deviceName}</td>
                 <td class="px-2 py-1">${alarm.desc || '--'}</td>
                 <td class="px-2 py-1">${alarm.type}</td>
-                <td class="px-2 py-1">${alarm.value}</td>
-                <td class="px-2 py-1">${alarm.limit || '--'}</td>
+                <td class="px-2 py-1">${formattedValue}</td>
+                <td class="px-2 py-1">${formattedLimit}</td>
                 <td class="px-2 py-1">
                     <span class="px-2 py-0.5 text-xs rounded ${alarm.status === '未处理' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
                         ${alarm.status}

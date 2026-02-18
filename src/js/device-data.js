@@ -64,6 +64,7 @@ function processRealTimeData(data) {
             deviceData[deviceName].hValue = deviceData[deviceName].hValue || data.hValue || data.H || null;
             deviceData[deviceName].lValue = deviceData[deviceName].lValue || data.lValue || data.L || null;
             deviceData[deviceName].llValue = deviceData[deviceName].llValue || data.llValue || data.LL || null;
+            // 不要覆盖从数据库获取的量程信息
             deviceData[deviceName].updateTime = new Date().toLocaleString('zh-CN');
         }
         
@@ -151,21 +152,21 @@ function updateDeviceDataTable() {
             const device = deviceData[deviceName];
             const row = document.createElement('tr');
             
-            // 检查值是否为数字，不是数字则显示为"--"
-            const displayValue = isNaN(device.value) ? '--' : device.value;
+            // 检查值是否为数字，不是数字则显示为"--"，是数字则保留两位小数
+            const displayValue = isNaN(device.value) ? '--' : parseFloat(device.value).toFixed(2);
             
             row.innerHTML = `
                 <td class="px-3 py-2 text-center">${deviceName}</td>
                 <td class="px-3 py-2">${device.desc || '--'}</td>
                 <td class="px-3 py-2 text-center font-medium">${displayValue}</td>
-                <td class="px-3 py-2 text-center">${device.minRange !== null && device.maxRange !== null ? `${device.minRange}-${device.maxRange}` : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.hhValue !== null ? device.hhValue : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.hValue !== null ? device.hValue : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.lValue !== null ? device.lValue : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.llValue !== null ? device.llValue : '--'}</td>
-                <td class="px-3 py-2 text-center">--</td>
-                <td class="px-3 py-2 text-center">--</td>
-                <td class="px-3 py-2 text-center">--</td>
+                <td class="px-3 py-2 text-center">${device.minRange !== undefined && device.minRange !== null && device.maxRange !== undefined && device.maxRange !== null ? `${device.minRange}-${device.maxRange}` : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.hValue !== undefined && device.hValue !== null ? device.hValue : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.lValue !== undefined && device.lValue !== null ? device.lValue : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.llValue !== undefined && device.llValue !== null ? device.llValue : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.factory !== undefined && device.factory !== null ? device.factory : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.is_major_hazard !== undefined && device.is_major_hazard !== null ? (device.is_major_hazard === 1 ? '是' : '否') : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.is_sis !== undefined && device.is_sis !== null ? (device.is_sis === 1 ? '是' : '否') : '--'}</td>
             `;
             
             fragment.appendChild(row);
@@ -205,7 +206,7 @@ function saveDeviceListToLocalStorage() {
 async function fetchDevicesFromBackend() {
     try {
         console.log('从后端获取设备信息...');
-        const response = await fetch('http://localhost:3001/api/devices');
+        const response = await fetch('http://localhost:3002/api/devices');
         if (!response.ok) {
             throw new Error('HTTP error ' + response.status);
         }
@@ -219,32 +220,38 @@ async function fetchDevicesFromBackend() {
                     if (!deviceData[device.name]) {
                         deviceData[device.name] = {
                             value: 0,
-                            desc: device.desc || '',
-                            unit: device.unit || '',
-                            minRange: device.minRange || null,
-                            maxRange: device.maxRange || null,
-                            hhValue: device.hhValue || null,
-                            hValue: device.hValue || null,
-                            lValue: device.lValue || null,
-                            llValue: device.llValue || null,
-                            type: device.type || null,
-                            quality: device.quality || null,
-                            timestamp: device.timestamp || null,
-                            alarmCount: device.alarmCount || 0,
-                            status: device.status || '正常',
+                            desc: device.desc !== undefined && device.desc !== null ? device.desc : '',
+                            unit: device.unit !== undefined && device.unit !== null ? device.unit : '',
+                            minRange: device.minRange !== undefined && device.minRange !== null ? device.minRange : null,
+                            maxRange: device.maxRange !== undefined && device.maxRange !== null ? device.maxRange : null,
+                            hhValue: device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : null,
+                            hValue: device.hValue !== undefined && device.hValue !== null ? device.hValue : null,
+                            lValue: device.lValue !== undefined && device.lValue !== null ? device.lValue : null,
+                            llValue: device.llValue !== undefined && device.llValue !== null ? device.llValue : null,
+                            type: device.type !== undefined && device.type !== null ? device.type : '',
+                            quality: device.quality !== undefined && device.quality !== null ? device.quality : null,
+                            timestamp: device.timestamp !== undefined && device.timestamp !== null ? device.timestamp : null,
+                            alarmCount: device.alarmCount !== undefined && device.alarmCount !== null ? device.alarmCount : 0,
+                            status: device.status !== undefined && device.status !== null ? device.status : '正常',
+                            factory: device.factory !== undefined && device.factory !== null ? device.factory : null,
+                            is_major_hazard: device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : null,
+                            is_sis: device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : null,
                             updateTime: new Date().toLocaleString('zh-CN')
                         };
                     } else {
                         // 更新现有设备信息
-                        deviceData[device.name].desc = device.desc || deviceData[device.name].desc;
-                        deviceData[device.name].unit = device.unit || deviceData[device.name].unit;
-                        deviceData[device.name].minRange = device.minRange || deviceData[device.name].minRange;
-                        deviceData[device.name].maxRange = device.maxRange || deviceData[device.name].maxRange;
-                        deviceData[device.name].hhValue = device.hhValue || deviceData[device.name].hhValue;
-                        deviceData[device.name].hValue = device.hValue || deviceData[device.name].hValue;
-                        deviceData[device.name].lValue = device.lValue || deviceData[device.name].lValue;
-                        deviceData[device.name].llValue = device.llValue || deviceData[device.name].llValue;
-                        deviceData[device.name].type = device.type || deviceData[device.name].type;
+                        deviceData[device.name].desc = device.desc !== undefined && device.desc !== null ? device.desc : deviceData[device.name].desc;
+                        deviceData[device.name].unit = device.unit !== undefined && device.unit !== null ? device.unit : deviceData[device.name].unit;
+                        deviceData[device.name].minRange = device.minRange !== undefined && device.minRange !== null ? device.minRange : deviceData[device.name].minRange;
+                        deviceData[device.name].maxRange = device.maxRange !== undefined && device.maxRange !== null ? device.maxRange : deviceData[device.name].maxRange;
+                        deviceData[device.name].hhValue = device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : deviceData[device.name].hhValue;
+                        deviceData[device.name].hValue = device.hValue !== undefined && device.hValue !== null ? device.hValue : deviceData[device.name].hValue;
+                        deviceData[device.name].lValue = device.lValue !== undefined && device.lValue !== null ? device.lValue : deviceData[device.name].lValue;
+                        deviceData[device.name].llValue = device.llValue !== undefined && device.llValue !== null ? device.llValue : deviceData[device.name].llValue;
+                        deviceData[device.name].type = device.type !== undefined && device.type !== null ? device.type : deviceData[device.name].type;
+                        deviceData[device.name].factory = device.factory !== undefined && device.factory !== null ? device.factory : deviceData[device.name].factory;
+                        deviceData[device.name].is_major_hazard = device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : deviceData[device.name].is_major_hazard;
+                        deviceData[device.name].is_sis = device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : deviceData[device.name].is_sis;
                     }
                 }
             });

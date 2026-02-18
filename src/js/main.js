@@ -209,6 +209,50 @@ document.addEventListener('DOMContentLoaded', function() {
         // 初始化事件监听器
         initEventListeners();
         
+        // 初始化搜索按钮事件
+        const initSearchFunctionality = function() {
+            const searchBtn = document.getElementById('search-btn');
+            const deviceSearchInput = document.getElementById('device-search');
+            
+            // 搜索函数
+            const handleSearch = function() {
+                // 直接从window对象获取searchDevices函数
+                if (typeof window.searchDevices === 'function') {
+                    window.searchDevices();
+                } else {
+                    // 尝试动态加载history-data.js
+                    console.log('尝试加载history-data.js...');
+                    const script = document.createElement('script');
+                    script.src = 'src/js/history-data.js';
+                    script.onload = function() {
+                        if (typeof window.searchDevices === 'function') {
+                            window.searchDevices();
+                        } else {
+                            console.error('searchDevices函数仍然未定义');
+                        }
+                    };
+                    document.head.appendChild(script);
+                }
+            };
+            
+            // 添加搜索按钮点击事件
+            if (searchBtn) {
+                searchBtn.addEventListener('click', handleSearch);
+            }
+            
+            // 添加搜索输入框回车事件
+            if (deviceSearchInput) {
+                deviceSearchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        handleSearch();
+                    }
+                });
+            }
+        };
+        
+        // 延迟初始化搜索功能，确保所有脚本都已加载
+        setTimeout(initSearchFunctionality, 1000);
+        
         // 初始化登录功能
         initLoginFunctionality();
         
@@ -230,6 +274,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 connectMQTT();
             });
         }, 500);
+        
+        // 定期从后端更新设备信息，确保量程信息保持最新
+        setInterval(function() {
+            console.log('定期从后端更新设备信息...');
+            fetchDevicesFromBackend();
+        }, 5 * 60 * 1000); // 每5分钟更新一次
         
         // 初始化表格列宽调整功能
         setTimeout(function() {

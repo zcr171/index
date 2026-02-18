@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3002;
 
 app.use(cors());
 app.use(express.json());
@@ -326,15 +326,15 @@ app.get('/api/devices', async (req, res) => {
       desc: '',
       unit: item.unit || '',
       type: '',
-      hhValue: item.HH || null,
-      hValue: item.H || null,
-      lValue: item.L || null,
-      llValue: item.LL || null,
-      minRange: item.qty_min || null,
-      maxRange: item.qty_max || null,
+      hhValue: item.HH !== undefined && item.HH !== null ? item.HH : null,
+      hValue: item.H !== undefined && item.H !== null ? item.H : null,
+      lValue: item.L !== undefined && item.L !== null ? item.L : null,
+      llValue: item.LL !== undefined && item.LL !== null ? item.LL : null,
+      minRange: item.qty_min !== undefined && item.qty_min !== null ? item.qty_min : null,
+      maxRange: item.qty_max !== undefined && item.qty_max !== null ? item.qty_max : null,
       factory: item.factory || null,
       is_major_hazard: item.is_major_hazard || null,
-      is_isi: item.is_sis || null
+      is_sis: item.is_sis || null
     }));
     
     res.json({
@@ -374,35 +374,55 @@ app.post('/api/history/batch', async (req, res) => {
       });
     }
     
-    // 模拟历史数据返回
-    // 在实际应用中，这里应该从数据库中查询真实的历史数据
-    const mockData = deviceTags.map(deviceTag => {
-      // 生成模拟数据点
-      const dataPoints = [];
-      const step = (endTime - startTime) / 20; // 生成20个数据点
-      
-      for (let i = 0; i <= 20; i++) {
-        const timestamp = startTime + Math.floor(step * i);
-        const value = 50 + Math.sin(i / 2) * 20 + Math.random() * 10; // 模拟正弦波数据
+    // 从数据库查询真实的历史数据
+    // 注意：这里需要根据实际的数据库结构和表名进行调整
+    let realData = [];
+    
+    try {
+      // 为每个设备查询历史数据
+      for (const deviceTag of deviceTags) {
+        // 构建查询SQL
+        const sql = `
+          SELECT timestamp, value 
+          FROM scada_web.history_data 
+          WHERE device_no = ? 
+          AND timestamp BETWEEN ? AND ? 
+          ORDER BY timestamp ASC
+        `;
         
-        dataPoints.push({
-          time: timestamp,
-          value: parseFloat(value.toFixed(2))
+        // 执行查询
+        const results = await queryDatabase(sql, [deviceTag, startTime, endTime]);
+        
+        // 格式化结果
+        const dataPoints = results.map(row => ({
+          time: row.timestamp,
+          value: parseFloat(row.value)
+        }));
+        
+        // 添加到结果数组
+        realData.push({
+          tag: deviceTag,
+          data: dataPoints
         });
       }
-      
-      return {
+    } catch (error) {
+      console.error('查询历史数据失败:', error);
+      // 如果查询失败，返回空数据
+      realData = deviceTags.map(deviceTag => ({
         tag: deviceTag,
-        data: dataPoints
-      };
-    });
+        data: []
+      }));
+    }
+    
+    // 使用真实数据或空数据
+    const deviceData = realData;
     
     // 返回成功响应
     res.json({
       code: 0,
       msg: 'success',
       result: {
-        data: mockData
+        data: deviceData
       },
       clientId: clientId
     });
@@ -420,8 +440,25 @@ app.post('/api/history/batch', async (req, res) => {
 // 启动服务器
 app.listen(port, async () => {
   console.log('Server running on http://localhost:' + port);
-  // 初始化数据库连接
-  await initDatabaseConnection();
+  try {
+    // 初始化数据库连接
+    await initDatabaseConnection();
+    console.log('数据库连接初始化完成');
+    // 测试服务器是否正常运行
+    console.log('服务器启动成功，可以通过 http://localhost:' + port + ' 访问');
+  } catch (error) {
+    console.error('服务器启动时出错:', error);
+  }
+});
+
+// 捕获未处理的异常
+process.on('uncaughtException', (error) => {
+  console.error('未捕获的异常:', error);
+});
+
+// 捕获未处理的Promise拒绝
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未处理的Promise拒绝:', reason);
 });
 
 // 错误处理中间件
