@@ -114,16 +114,39 @@ body {
 
 /* 实时数据表格列宽 */
 .data-table th:nth-child(1) { /* 位号列 */
-    min-width: 150px;
-    width: 150px;
-}
-.data-table th:nth-child(2) { /* 描述列 */
-    min-width: 200px;
-    width: 200px;
-}
-.data-table th:nth-child(3) { /* 实时数据列 */
     min-width: 120px;
     width: 120px;
+}
+.data-table th:nth-child(2) { /* 描述列 */
+    min-width: 160px;
+    width: 160px;
+}
+.data-table th:nth-child(3) { /* 实时数据列 */
+    min-width: 100px;
+    width: 100px;
+}
+
+/* 紧凑表格样式 */
+.data-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.08rem 0.2rem;
+    font-size: 0.7rem;
+    line-height: 0.8;
+    height: 15px;
+}
+
+.data-table th {
+    font-weight: 600;
+    font-size: 0.65rem;
+}
+
+.data-table td {
+    font-size: 0.65rem;
 }
 
 /* 工业监控页面标准布局 */
