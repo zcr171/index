@@ -209,49 +209,59 @@ document.addEventListener('DOMContentLoaded', function() {
         // 初始化事件监听器
         initEventListeners();
         
-        // 初始化搜索按钮事件
+        // 初始化搜索输入框回车事件
         const initSearchFunctionality = function() {
-            const searchBtn = document.getElementById('search-btn');
             const deviceSearchInput = document.getElementById('device-search');
+            const alarmDeviceSearchInput = document.getElementById('alarm-device-search');
+            
+            console.log('初始化搜索功能...');
+            console.log('deviceSearchInput元素:', deviceSearchInput);
             
             // 搜索函数
             const handleSearch = function() {
+                console.log('执行搜索...');
                 // 直接从window对象获取searchDevices函数
                 if (typeof window.searchDevices === 'function') {
                     window.searchDevices();
                 } else {
-                    // 尝试动态加载history-data.js
-                    console.log('尝试加载history-data.js...');
-                    const script = document.createElement('script');
-                    script.src = 'src/js/history-data.js';
-                    script.onload = function() {
-                        if (typeof window.searchDevices === 'function') {
-                            window.searchDevices();
-                        } else {
-                            console.error('searchDevices函数仍然未定义');
-                        }
-                    };
-                    document.head.appendChild(script);
+                    console.error('searchDevices函数未定义');
                 }
             };
             
-            // 添加搜索按钮点击事件
-            if (searchBtn) {
-                searchBtn.addEventListener('click', handleSearch);
-            }
+            // 报警搜索函数
+            const handleAlarmSearch = function() {
+                console.log('执行报警搜索...');
+                // 直接从window对象获取searchAlarmDevices函数
+                if (typeof window.searchAlarmDevices === 'function') {
+                    window.searchAlarmDevices();
+                } else {
+                    console.error('searchAlarmDevices函数未定义');
+                }
+            };
             
             // 添加搜索输入框回车事件
             if (deviceSearchInput) {
+                console.log('添加搜索输入框回车事件...');
                 deviceSearchInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
                         handleSearch();
                     }
                 });
             }
+            
+            // 添加报警搜索输入框回车事件
+            if (alarmDeviceSearchInput) {
+                console.log('添加报警搜索输入框回车事件...');
+                alarmDeviceSearchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        handleAlarmSearch();
+                    }
+                });
+            }
         };
         
         // 延迟初始化搜索功能，确保所有脚本都已加载
-        setTimeout(initSearchFunctionality, 1000);
+        setTimeout(initSearchFunctionality, 500);
         
         // 初始化登录功能
         initLoginFunctionality();
@@ -269,8 +279,10 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             console.log('页面加载完成，从后端获取设备信息...');
             fetchDevicesFromBackend().then(function() {
-                // 设备列表获取完成后再连接MQTT
-                console.log('设备列表获取完成，开始连接MQTT...');
+                // 设备列表获取完成后再连接后端服务
+                console.log('设备列表获取完成，开始连接后端服务...');
+                console.log('设备数据数量:', Object.keys(deviceData).length);
+                console.log('设备数据示例:', Object.keys(deviceData).slice(0, 5));
                 connectMQTT();
             });
         }, 500);
@@ -313,17 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
  * 功能：初始化MySQL配置表单字段
  */
 function initMySQLConfigForm() {
-    const mysqlHost = document.getElementById('mysql-host');
-    const mysqlPort = document.getElementById('mysql-port');
-    const mysqlDatabase = document.getElementById('mysql-database');
-    const mysqlUsername = document.getElementById('mysql-username');
-    const mysqlPassword = document.getElementById('mysql-password');
-    
-    if (mysqlHost) mysqlHost.value = mysqlConfig.host;
-    if (mysqlPort) mysqlPort.value = mysqlConfig.port;
-    if (mysqlDatabase) mysqlDatabase.value = mysqlConfig.database;
-    if (mysqlUsername) mysqlUsername.value = mysqlConfig.username;
-    if (mysqlPassword) mysqlPassword.value = mysqlConfig.password;
+    // 不再初始化MySQL配置表单，因为这些配置应该在后端管理
+    // 前端不应该知道或修改MySQL连接信息
+    console.log('MySQL配置由后端管理，前端无需配置');
 }
 
 /**

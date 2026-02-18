@@ -560,7 +560,7 @@
                                 <div class="relative mb-0.5">
                                     <div class="flex space-x-1">
                                         <input type="text" id="device-search" placeholder="搜索位号..." class="flex-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-1">
-                                        <button id="search-btn" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                        <button onclick="searchDevices()" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
                                             <i class="fa fa-search mr-1"></i> 搜索
                                         </button>
                                     </div>
@@ -609,17 +609,7 @@
                     </div>
                     <div id="table-display" class="card w-full" style="height: 50vh; display: none;">
                         <div class="p-0 h-full overflow-x-auto overflow-y-auto">
-                            <table class="w-full text-sm text-left text-gray-700 dark:text-gray-300 data-table">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 sticky top-0">
-                                    <tr>
-                                        <th scope="col" class="px-3 py-2 sticky left-0 bg-gray-50 dark:bg-gray-700">位号</th>
-                                        <th scope="col" class="px-3 py-2">时间</th>
-                                        <th scope="col" class="px-3 py-2">数值</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="history-table-body">
-                                </tbody>
-                            </table>
+                            <!-- 表格内容将由JavaScript动态生成 -->
                         </div>
                     </div>
                 </div>

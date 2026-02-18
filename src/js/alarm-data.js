@@ -224,3 +224,11 @@ function resetAlarmDeviceSelection() {
         searchInput.value = '';
     }
 }
+
+// 将函数添加到window对象，确保在全局作用域中可用
+if (typeof window !== 'undefined') {
+    window.searchAlarmDevices = searchAlarmDevices;
+    window.addAlarmDeviceToSelection = addAlarmDeviceToSelection;
+    window.removeAlarmDeviceFromSelection = removeAlarmDeviceFromSelection;
+    window.resetAlarmDeviceSelection = resetAlarmDeviceSelection;
+}

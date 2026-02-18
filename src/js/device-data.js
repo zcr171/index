@@ -206,52 +206,65 @@ function saveDeviceListToLocalStorage() {
 async function fetchDevicesFromBackend() {
     try {
         console.log('从后端获取设备信息...');
-        const response = await fetch('http://localhost:3002/api/devices');
+        const token = localStorage.getItem('token');
+        console.log('使用的token:', token);
+        
+        const response = await fetch(`${API_BASE_URL}/devices`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
         if (!response.ok) {
+            console.error('获取设备信息失败，状态码:', response.status);
             throw new Error('HTTP error ' + response.status);
         }
         const devices = await response.json();
         console.log('从后端获取设备信息成功，共', devices.data ? devices.data.length : 0, '个设备');
+        console.log('后端返回的设备数据:', devices);
         
         // 处理获取到的设备信息
         if (devices.success && devices.data) {
             devices.data.forEach(device => {
-                if (device.name) {
-                    if (!deviceData[device.name]) {
-                        deviceData[device.name] = {
+                if (device.device_no) {
+                    const deviceName = device.device_no;
+                    if (!deviceData[deviceName]) {
+                        deviceData[deviceName] = {
                             value: 0,
-                            desc: device.desc !== undefined && device.desc !== null ? device.desc : '',
+                            desc: device.description !== undefined && device.description !== null ? device.description : '',
                             unit: device.unit !== undefined && device.unit !== null ? device.unit : '',
-                            minRange: device.minRange !== undefined && device.minRange !== null ? device.minRange : null,
-                            maxRange: device.maxRange !== undefined && device.maxRange !== null ? device.maxRange : null,
-                            hhValue: device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : null,
-                            hValue: device.hValue !== undefined && device.hValue !== null ? device.hValue : null,
-                            lValue: device.lValue !== undefined && device.lValue !== null ? device.lValue : null,
-                            llValue: device.llValue !== undefined && device.llValue !== null ? device.llValue : null,
+                            minRange: device.qty_min !== undefined && device.qty_min !== null ? device.qty_min : null,
+                            maxRange: device.qty_max !== undefined && device.qty_max !== null ? device.qty_max : null,
+                            hhValue: device.HH !== undefined && device.HH !== null ? device.HH : null,
+                            hValue: device.H !== undefined && device.H !== null ? device.H : null,
+                            lValue: device.L !== undefined && device.L !== null ? device.L : null,
+                            llValue: device.LL !== undefined && device.LL !== null ? device.LL : null,
                             type: device.type !== undefined && device.type !== null ? device.type : '',
                             quality: device.quality !== undefined && device.quality !== null ? device.quality : null,
                             timestamp: device.timestamp !== undefined && device.timestamp !== null ? device.timestamp : null,
                             alarmCount: device.alarmCount !== undefined && device.alarmCount !== null ? device.alarmCount : 0,
                             status: device.status !== undefined && device.status !== null ? device.status : '正常',
                             factory: device.factory !== undefined && device.factory !== null ? device.factory : null,
+                            level: device.level !== undefined && device.level !== null ? device.level : null,
                             is_major_hazard: device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : null,
                             is_sis: device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : null,
                             updateTime: new Date().toLocaleString('zh-CN')
                         };
                     } else {
                         // 更新现有设备信息
-                        deviceData[device.name].desc = device.desc !== undefined && device.desc !== null ? device.desc : deviceData[device.name].desc;
-                        deviceData[device.name].unit = device.unit !== undefined && device.unit !== null ? device.unit : deviceData[device.name].unit;
-                        deviceData[device.name].minRange = device.minRange !== undefined && device.minRange !== null ? device.minRange : deviceData[device.name].minRange;
-                        deviceData[device.name].maxRange = device.maxRange !== undefined && device.maxRange !== null ? device.maxRange : deviceData[device.name].maxRange;
-                        deviceData[device.name].hhValue = device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : deviceData[device.name].hhValue;
-                        deviceData[device.name].hValue = device.hValue !== undefined && device.hValue !== null ? device.hValue : deviceData[device.name].hValue;
-                        deviceData[device.name].lValue = device.lValue !== undefined && device.lValue !== null ? device.lValue : deviceData[device.name].lValue;
-                        deviceData[device.name].llValue = device.llValue !== undefined && device.llValue !== null ? device.llValue : deviceData[device.name].llValue;
-                        deviceData[device.name].type = device.type !== undefined && device.type !== null ? device.type : deviceData[device.name].type;
-                        deviceData[device.name].factory = device.factory !== undefined && device.factory !== null ? device.factory : deviceData[device.name].factory;
-                        deviceData[device.name].is_major_hazard = device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : deviceData[device.name].is_major_hazard;
-                        deviceData[device.name].is_sis = device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : deviceData[device.name].is_sis;
+                        deviceData[deviceName].desc = device.description !== undefined && device.description !== null ? device.description : deviceData[deviceName].desc;
+                        deviceData[deviceName].unit = device.unit !== undefined && device.unit !== null ? device.unit : deviceData[deviceName].unit;
+                        deviceData[deviceName].minRange = device.qty_min !== undefined && device.qty_min !== null ? device.qty_min : deviceData[deviceName].minRange;
+                        deviceData[deviceName].maxRange = device.qty_max !== undefined && device.qty_max !== null ? device.qty_max : deviceData[deviceName].maxRange;
+                        deviceData[deviceName].hhValue = device.HH !== undefined && device.HH !== null ? device.HH : deviceData[deviceName].hhValue;
+                        deviceData[deviceName].hValue = device.H !== undefined && device.H !== null ? device.H : deviceData[deviceName].hValue;
+                        deviceData[deviceName].lValue = device.L !== undefined && device.L !== null ? device.L : deviceData[deviceName].lValue;
+                        deviceData[deviceName].llValue = device.LL !== undefined && device.LL !== null ? device.LL : deviceData[deviceName].llValue;
+                        deviceData[deviceName].type = device.type !== undefined && device.type !== null ? device.type : deviceData[deviceName].type;
+                        deviceData[deviceName].factory = device.factory !== undefined && device.factory !== null ? device.factory : deviceData[deviceName].factory;
+                        deviceData[deviceName].level = device.level !== undefined && device.level !== null ? device.level : deviceData[deviceName].level;
+                        deviceData[deviceName].is_major_hazard = device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : deviceData[deviceName].is_major_hazard;
+                        deviceData[deviceName].is_sis = device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : deviceData[deviceName].is_sis;
                     }
                 }
             });
@@ -264,7 +277,7 @@ async function fetchDevicesFromBackend() {
         // 更新综合概况统计数据
         updateOverviewStats();
         
-        console.log('设备信息处理完成');
+        console.log('设备信息处理完成，当前deviceData中的设备数量:', Object.keys(deviceData).length);
     } catch (error) {
         console.error('从后端获取设备信息失败:', error);
         // 如果从后端获取失败，尝试从本地存储获取

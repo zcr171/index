@@ -111,6 +111,99 @@ body {
 .resizing th::after {
     background-color: rgb(14, 165, 233) !important;
 }
+
+/* 实时数据表格列宽 */
+.data-table th:nth-child(1) { /* 位号列 */
+    min-width: 150px;
+    width: 150px;
+}
+.data-table th:nth-child(2) { /* 描述列 */
+    min-width: 200px;
+    width: 200px;
+}
+.data-table th:nth-child(3) { /* 实时数据列 */
+    min-width: 120px;
+    width: 120px;
+}
+
+/* 工业监控页面标准布局 */
+/* 网页整体容器 */
+#main-page {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 主内容区域 */
+#main-page .flex-1 {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 主内容滚动区域 */
+#main-page main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* 设备列表容器 */
+#realtime-data .card .max-h-\[calc\(100vh-320px\)\] {
+    max-height: calc(100vh - 320px);
+    height: calc(100vh - 320px);
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 报警数据列表容器 */
+#alarm-data .card .overflow-x-auto {
+    max-height: calc(100vh - 320px);
+    height: calc(100vh - 320px);
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 历史数据列表容器 */
+#history-data .card .overflow-x-auto {
+    max-height: calc(100vh - 320px);
+    height: calc(100vh - 320px);
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 历史报警数据列表容器 */
+#history-alarm-data .card .overflow-x-auto {
+    max-height: calc(100vh - 320px);
+    height: calc(100vh - 320px);
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 搜索结果下拉框样式 */
+#search-results,
+#alarm-search-results {
+    position: absolute;
+    z-index: 100;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+#search-results > div:hover,
+#alarm-search-results > div:hover {
+    background-color: #f3f4f6;
+}
+
 @keyframes pulse {
     0%, 100% {
         opacity: 1;
