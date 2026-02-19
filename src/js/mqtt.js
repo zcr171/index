@@ -5,8 +5,25 @@ let ws = null;
 function connectWebSocket() {
     console.log('连接到WebSocket服务器...');
     
-    // 创建WebSocket连接
-    ws = new WebSocket('ws://localhost:3002');
+    // 从localStorage获取用户信息
+    const token = localStorage.getItem('token');
+    let userId = null;
+    
+    // 尝试从token中解析userId
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId;
+            console.log('从token中解析出userId:', userId);
+        } catch (error) {
+            console.error('解析token失败:', error);
+        }
+    }
+    
+    // 创建WebSocket连接，传递userId参数
+    const wsUrl = userId ? `ws://localhost:3003?userId=${userId}` : 'ws://localhost:3003';
+    console.log('WebSocket连接URL:', wsUrl);
+    ws = new WebSocket(wsUrl);
     
     // 连接成功
     ws.onopen = function() {

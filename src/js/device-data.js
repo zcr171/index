@@ -1,6 +1,4 @@
-// 导出设备清单的时间戳，用于控制导出频率
-let lastExportTime = 0;
-const EXPORT_INTERVAL = 60000; // 导出间隔，1分钟
+// 模拟间隔变量
 let simulationInterval = null;
 
 /**
@@ -107,22 +105,6 @@ function processRealTimeData(data) {
         debouncedUpdateDeviceDataTable();
         updateHistoryDeviceSelect();
         updateOverviewStats();
-        
-        // 检查是否需要更新保存设备清单到本地存储
-        const now = Date.now();
-        if (now - lastExportTime > EXPORT_INTERVAL) {
-            console.log('设备数据更新，检查是否需要重新保存设备清单');
-            // 检查是否有新设备添加
-            const deviceCount = Object.keys(deviceData).length;
-            console.log('当前设备数量:', deviceCount);
-            
-            // 如果设备数量大于0，且距离上次保存超过1分钟，则重新保存
-            if (deviceCount > 0) {
-                console.log('距离上次保存已超过1分钟，重新保存设备清单到本地存储');
-                saveDeviceListToLocalStorage();
-                lastExportTime = now;
-            }
-        }
     }
 }
 
@@ -159,7 +141,7 @@ function updateDeviceDataTable() {
                 <td class="px-3 py-2 text-center">${deviceName}</td>
                 <td class="px-3 py-2">${device.desc || '--'}</td>
                 <td class="px-3 py-2 text-center font-medium">${displayValue}</td>
-                <td class="px-3 py-2 text-center">${device.minRange !== undefined && device.minRange !== null && device.maxRange !== undefined && device.maxRange !== null ? `${device.minRange}-${device.maxRange}` : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.minRange !== undefined && device.minRange !== null && device.maxRange !== undefined && device.maxRange !== null ? `${device.minRange}-${device.maxRange} ${device.unit || ''}` : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.hValue !== undefined && device.hValue !== null ? device.hValue : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.lValue !== undefined && device.lValue !== null ? device.lValue : '--'}</td>
@@ -188,17 +170,6 @@ function updateDeviceDataTable() {
         
     } catch (error) {
         console.error('更新设备数据表格时出错:', error);
-    }
-}
-
-// 保存设备清单到本地存储
-function saveDeviceListToLocalStorage() {
-    try {
-        const deviceList = Object.keys(deviceData);
-        localStorage.setItem('deviceList', JSON.stringify(deviceList));
-        console.log('设备清单已保存到本地存储，共', deviceList.length, '个设备');
-    } catch (error) {
-        console.error('保存设备清单到本地存储失败:', error);
     }
 }
 
@@ -280,114 +251,8 @@ async function fetchDevicesFromBackend() {
         console.log('设备信息处理完成，当前deviceData中的设备数量:', Object.keys(deviceData).length);
     } catch (error) {
         console.error('从后端获取设备信息失败:', error);
-        // 如果从后端获取失败，尝试从本地存储获取
-        loadDeviceListFromLocalStorage();
+        // 如果从后端获取失败，不尝试从本地存储获取
     }
-}
-
-// 从本地存储加载设备清单
-function loadDeviceListFromLocalStorage() {
-    try {
-        const savedDeviceList = localStorage.getItem('deviceList');
-        if (savedDeviceList) {
-            const deviceList = JSON.parse(savedDeviceList);
-            console.log('从本地存储加载设备清单，共', deviceList.length, '个设备');
-            
-            // 为每个设备创建默认数据
-            deviceList.forEach(deviceName => {
-                if (!deviceData[deviceName]) {
-                    deviceData[deviceName] = {
-                        value: 0,
-                        desc: '',
-                        unit: '',
-                        minRange: null,
-                        maxRange: null,
-                        hhValue: null,
-                        hValue: null,
-                        lValue: null,
-                        llValue: null,
-                        type: null,
-                        quality: null,
-                        timestamp: null,
-                        alarmCount: 0,
-                        status: '正常',
-                        updateTime: new Date().toLocaleString('zh-CN')
-                    };
-                }
-            });
-            
-            // 更新设备数据表格
-            updateDeviceDataTable();
-            // 更新历史数据设备选择
-            updateHistoryDeviceSelect();
-            // 更新综合概况统计数据
-            updateOverviewStats();
-        }
-    } catch (error) {
-        console.error('从本地存储加载设备清单失败:', error);
-    }
-}
-
-// 导出设备清单
-function exportDeviceList() {
-    try {
-        const devices = Object.keys(deviceData).map(deviceName => {
-            const device = deviceData[deviceName];
-            return {
-                位号: deviceName,
-                描述: device.desc || '',
-                实时数据: device.value,
-                量程: device.minRange !== null && device.maxRange !== null ? `${device.minRange}-${device.maxRange}` : '--',
-                高高限: device.hhValue || '--',
-                高限: device.hValue || '--',
-                低限: device.lValue || '--',
-                低低限: device.llValue || '--',
-                更新时间: device.updateTime
-            };
-        });
-        
-        const csvContent = convertToCSV(devices);
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', '设备清单_' + new Date().toISOString().slice(0, 10) + '.csv');
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('设备清单导出成功');
-    } catch (error) {
-        console.error('导出设备清单失败:', error);
-        alert('导出设备清单失败，请重试');
-    }
-}
-
-// 将对象数组转换为CSV格式
-function convertToCSV(objArray) {
-    const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-    let str = '';
-    let line = '';
-    
-    // 添加表头
-    for (let index in array[0]) {
-        if (line !== '') line += ',';
-        line += index;
-    }
-    str += line + '\r\n';
-    
-    // 添加数据行
-    for (let i = 0; i < array.length; i++) {
-        let line = '';
-        for (let index in array[i]) {
-            if (line !== '') line += ',';
-            line += '"' + array[i][index] + '"';
-        }
-        str += line + '\r\n';
-    }
-    
-    return str;
 }
 
 // 更新历史数据设备选择

@@ -16,4 +16,4 @@ function getClientId() {
 }
 
 // 后端API基础URL
-const API_BASE_URL = 'http://localhost:3002/api';
+const API_BASE_URL = 'http://localhost:3003/api';

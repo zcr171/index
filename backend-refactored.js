@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
@@ -16,7 +16,16 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // 存储所有连接的WebSocket客户端
-const connectedClients = new Set();
+const connectedClients = new Map();
+
+// 内存缓存：用户ID → 设备位号Set
+const userDeviceCache = new Map();
+
+// 内存缓存：用户ID → MQTT客户端
+const userMqttClients = new Map();
+
+// 内存缓存：用户ID → 用户信息（用于缓存刷新）
+const userInfoCache = new Map();
 
 // 全局变量存储报警数据
 let alarmData = { alarms: [] };
@@ -24,17 +33,44 @@ let alarmData = { alarms: [] };
 // 加载环境变量
 dotenv.config();
 
-const port = process.env.PORT || 3002;
+const port = process.env.PORT || 3003;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// 厂区配置：位掩码映射
+const FACTORY_CONFIG = {
+  RD: { bit: 1, value: 2, topic: 'rdvalue' },      // 热电域
+  QH: { bit: 2, value: 4, topic: 'qhvalue' },      // 气化域
+  JH: { bit: 3, value: 8, topic: 'jhvalue' },      // 净化成品域
+  HS: { bit: 4, value: 16, topic: 'hsvalue' },     // 回收域
+  DW: { bit: 5, value: 32, topic: 'dwvalue' }      // 人员定位系统
+};
+
+// 超级管理员标识
+const SUPER_ADMIN = 99;
+
 // 处理WebSocket连接
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   console.log('新的WebSocket客户端连接');
-  // 将新客户端添加到集合中
-  connectedClients.add(ws);
+  
+  // 从查询参数获取用户ID
+  let userId = null;
+  try {
+    const queryString = req.url.split('?')[1];
+    if (queryString) {
+      const urlParams = new URLSearchParams(queryString);
+      userId = urlParams.get('userId');
+    }
+  } catch (error) {
+    console.error('解析WebSocket查询参数失败:', error);
+  }
+  
+  if (userId) {
+    connectedClients.set(userId, ws);
+    console.log(`用户 ${userId} WebSocket连接成功`);
+  }
   
   // 发送连接成功消息
   ws.send(JSON.stringify({
@@ -45,266 +81,314 @@ wss.on('connection', (ws) => {
   // 处理客户端断开连接
   ws.on('close', () => {
     console.log('WebSocket客户端断开连接');
-    connectedClients.delete(ws);
+    if (userId) {
+      connectedClients.delete(userId);
+    }
   });
   
   // 处理客户端错误
   ws.on('error', (error) => {
     console.error('WebSocket客户端错误:', error);
-    connectedClients.delete(ws);
+    if (userId) {
+      connectedClients.delete(userId);
+    }
   });
 });
 
-// 向所有连接的客户端广播消息
-function broadcastMessage(message) {
-  const messageString = JSON.stringify(message);
-  connectedClients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(messageString);
-      } catch (error) {
-        console.error('发送WebSocket消息失败:', error);
-        connectedClients.delete(client);
-      }
+// 向指定用户发送WebSocket消息
+function sendToUser(userId, message) {
+  const client = connectedClients.get(userId);
+  if (client && client.readyState === WebSocket.OPEN) {
+    try {
+      client.send(JSON.stringify(message));
+    } catch (error) {
+      console.error('发送WebSocket消息失败:', error);
     }
-  });
+  }
 }
 
-// 数据库连接池配置
+// 数据库连接配置
 const dbConfig = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-const backupDbConfig = {
-  host: process.env.DB_BACKUP_HOST,
-  port: process.env.DB_BACKUP_PORT,
-  user: process.env.DB_BACKUP_USER,
-  password: process.env.DB_BACKUP_PASSWORD,
-  database: process.env.DB_BACKUP_NAME,
+  host: process.env.DB_HOST || '192.168.10.180',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'admin',
+  password: process.env.DB_PASSWORD || 'admin123',
+  database: process.env.DB_NAME || 'scada_web',
+  charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 };
 
 // 创建数据库连接池
-let mainPool = mysql.createPool(dbConfig);
-let backupPool = mysql.createPool(backupDbConfig);
-let currentPool = mainPool;
-let isUsingBackup = false;
+let pool;
+try {
+  pool = mysql.createPool(dbConfig);
+  console.log('数据库连接池创建成功');
+} catch (error) {
+  console.error('数据库连接池创建失败:', error);
+  process.exit(1);
+}
 
 // 测试数据库连接
-const testConnection = (pool, config) => {
-  return new Promise((resolve, reject) => {
-    pool.getConnection((err, connection) => {
-      if (err) {
-        console.error(`数据库连接失败 [${config.host}]:`, err.message);
-        resolve(false);
-        return;
+async function testConnection() {
+  try {
+    const connection = await pool.getConnection();
+    await connection.ping();
+    connection.release();
+    console.log('数据库连接成功');
+    return true;
+  } catch (error) {
+    console.error('数据库连接失败:', error.message);
+    return false;
+  }
+}
+
+// 【核心】二进制位掩码解析函数（严格按照用户规范）
+function parseFactoryLevel(factoryLevel) {
+  const areaMap = {
+    RD: 2,
+    QH: 4,
+    JH: 8,
+    HS: 16,
+    DW: 32
+  };
+  const allowedAreas = [];
+  // 仅对非99的数值做&运算
+  if (factoryLevel !== SUPER_ADMIN) {
+    for (const [areaName, bitValue] of Object.entries(areaMap)) {
+      // 二进制&运算：只有结果≠0，说明有该厂区权限
+      if ((factoryLevel & bitValue) !== 0) {
+        allowedAreas.push(bitValue);
       }
-      connection.ping((err) => {
-        connection.release();
-        if (err) {
-          console.error(`数据库Ping失败 [${config.host}]:`, err.message);
-          resolve(false);
-          return;
-        }
-        console.log(`数据库连接成功 [${config.host}]`);
-        resolve(true);
+    }
+  } else {
+    // 超级管理员返回所有厂区
+    allowedAreas.push(...Object.values(areaMap));
+  }
+  return allowedAreas;
+}
+
+// 【核心】厂区列表 → MQTT Topic列表映射函数
+function factoriesToTopics(factories) {
+  if (factories.length === 0) {
+    // 空工厂列表，返回所有Topic
+    return Object.values(FACTORY_CONFIG).map(config => config.topic);
+  }
+  
+  const topics = [];
+  for (const factoryValue of factories) {
+    // 查找对应的厂区配置
+    for (const [areaName, config] of Object.entries(FACTORY_CONFIG)) {
+      if (config.value === factoryValue) {
+        topics.push(config.topic);
+        break;
+      }
+    }
+  }
+  return topics;
+}
+
+// 【核心】批量查询用户有权限的设备（严格按照用户规范）
+async function getUserDevices(userId, factories, areaLevel, isSuperAdmin) {
+  try {
+    let devices = [];
+    let query = '';
+    let params = [];
+    
+    if (isSuperAdmin) {
+      // 超级管理员：无过滤，查所有设备
+      console.log('超级管理员查询所有设备');
+      query = `SELECT * FROM device_data`;
+    } else {
+      // 普通用户：带字段归属、权限过滤
+      console.log('普通用户查询设备，厂区列表:', factories, 'areaLevel:', areaLevel);
+      
+      if (factories.length === 0) {
+        console.log('用户无厂区权限，返回空设备列表');
+        return {
+          deviceSet: new Set(),
+          deviceList: []
+        };
+      }
+      
+      // 构建厂区条件
+      const factoryPlaceholders = factories.map(() => '?').join(',');
+      query = `SELECT * FROM device_data 
+               WHERE factory IN (${factoryPlaceholders}) 
+               AND (level IS NULL OR level <= ?)`;
+      
+      // 构建查询参数
+      params = [...factories, areaLevel];
+    }
+    
+    // 执行查询
+    const [results] = await pool.execute(query, params);
+    devices = results;
+    
+    console.log('设备查询结果数量:', devices.length);
+    
+    // 构建设备位号Set（用于O(1)权限判断）
+    const deviceSet = new Set();
+    const deviceList = [];
+    
+    for (const device of devices) {
+      deviceSet.add(device.device_no);
+      deviceList.push(device); // 返回完整设备信息
+    }
+    
+    // 缓存到内存（Key=用户ID，Value=设备位号Set）
+    userDeviceCache.set(userId, deviceSet);
+    console.log('设备缓存已更新，设备数量:', deviceSet.size);
+    
+    return {
+      deviceSet,
+      deviceList
+    };
+  } catch (error) {
+    console.error('批量查询设备失败:', error);
+    throw error;
+  }
+}
+
+// 【核心】MQTT初始化函数
+function initMQTTClient(userId, topics) {
+  console.log('初始化MQTT客户端:', { userId, topics });
+  
+  // 尝试连接MQTT服务器（支持主备切换）
+  function connectToMQTTServer(config, isBackup = false) {
+    console.log(`${isBackup ? '尝试连接到备用MQTT服务器' : '尝试连接到MQTT服务器'}:`, config.host);
+    let mqttClient;
+    try {
+      mqttClient = mqtt.connect(config);
+    } catch (error) {
+      console.error(`${isBackup ? '备用MQTT连接失败' : 'MQTT连接失败'}:`, error);
+      return null;
+    }
+
+    mqttClient.on('connect', function(connack) {
+      console.log(`${isBackup ? '备用MQTT连接成功' : 'MQTT连接成功'}:`, connack);
+
+      // 订阅Topic列表（仅订阅有权限的纯Topic，无通配符）
+      console.log('订阅MQTT Topic:', topics);
+      topics.forEach(topic => {
+        mqttClient.subscribe(topic, function(err) {
+          if (!err) {
+            console.log('订阅主题成功:', topic);
+          } else {
+            console.error('订阅主题失败:', topic, err);
+          }
+        });
       });
     });
-  });
-};
 
-// 检查数据库连接状态并切换
-const checkAndSwitchConnection = async () => {
-  console.log('检查数据库连接状态...');
-  
-  // 测试主库
-  const mainConnected = await testConnection(mainPool, dbConfig);
-  
-  if (mainConnected) {
-    if (isUsingBackup) {
-      console.log('主库恢复，切换到主库');
-      currentPool = mainPool;
-      isUsingBackup = false;
-    }
-    return true;
-  }
-  
-  // 测试备库
-  const backupConnected = await testConnection(backupPool, backupDbConfig);
-  
-  if (backupConnected) {
-    if (!isUsingBackup) {
-      console.log('主库故障，切换到备库');
-      currentPool = backupPool;
-      isUsingBackup = true;
-    }
-    return true;
-  }
-  
-  console.error('所有数据库连接失败');
-  return false;
-};
+    mqttClient.on('message', function(topic, message) {
+      try {
+        const parsedMessage = JSON.parse(message.toString());
+        console.log('收到MQTT消息:', topic, '包含', parsedMessage.RTValue ? parsedMessage.RTValue.length : 0, '个设备数据');
+        
+        // 检查消息格式是否正确
+        if (parsedMessage.RTValue && Array.isArray(parsedMessage.RTValue)) {
+          // 【核心】权限判断：对每个设备单独检查权限
+          const deviceSet = userDeviceCache.get(userId);
+          const authorizedDevices = [];
+          
+          parsedMessage.RTValue.forEach(device => {
+            const deviceNo = device.name; // MQTT消息中的设备标识符字段是name
+            if (deviceSet && deviceSet.has(deviceNo)) {
+              console.log('设备有权限，处理数据:', deviceNo);
+              authorizedDevices.push(device);
+            } else {
+              console.log('设备无权限，丢弃数据:', deviceNo);
+              // 无权限的设备位号数据，直接丢弃
+            }
+          });
+          
+          // 只发送有权限的设备数据
+          if (authorizedDevices.length > 0) {
+            sendToUser(userId, {
+              type: 'realtime_data',
+              data: {
+                RTValue: authorizedDevices
+              }
+            });
+            console.log('发送实时数据给用户:', userId, '设备数量:', authorizedDevices.length);
+          }
+        } else {
+          console.error('MQTT消息格式错误，缺少RTValue数组:', parsedMessage);
+        }
+      } catch (e) {
+        console.error('解析MQTT消息失败:', e);
+      }
+    });
 
-// 初始化MQTT连接
-const initMQTTConnection = () => {
-  // MQTT主服务器配置
-  const mqttPrimaryConfig = {
+    mqttClient.on('error', function(err) {
+      console.error('MQTT连接错误:', err);
+      // 错误处理：MQTT连接错误不应导致服务器崩溃
+    });
+
+    mqttClient.on('offline', function() {
+      console.log('MQTT连接断开');
+    });
+
+    mqttClient.on('close', function() {
+      console.log('MQTT连接关闭');
+    });
+
+    return mqttClient;
+  }
+
+  // 主MQTT服务器配置
+  const primaryConfig = {
     host: process.env.MQTT_HOST || '192.168.10.180',
-    port: process.env.MQTT_PORT || 15675,
+    port: process.env.MQTT_PORT || 1883,
     username: process.env.MQTT_USERNAME || 'web_admin_9',
     password: process.env.MQTT_PASSWORD || 'web_admin_9',
-    clientId: 'backend_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    clientId: `user_${userId}_${Date.now()}`,
     clean: true,
-    connectTimeout: 10000,
+    connectTimeout: 5000, // 缩短超时时间
     reconnectPeriod: 3000,
     keepalive: 30,
-    resubscribe: true,
-    reconnectAttempts: 0
+    resubscribe: true
   };
 
-  // 连接到MQTT服务器
-  const brokerUrl = 'ws://' + mqttPrimaryConfig.host + ':' + mqttPrimaryConfig.port + '/ws';
-  console.log('尝试连接到MQTT服务器:', brokerUrl);
+  // 备用MQTT服务器配置
+  const backupConfig = {
+    host: process.env.MQTT_BACKUP_HOST || '192.168.10.234',
+    port: process.env.MQTT_BACKUP_PORT || 1883,
+    username: process.env.MQTT_BACKUP_USERNAME || 'web_admin_9',
+    password: process.env.MQTT_BACKUP_PASSWORD || 'web_admin_9',
+    clientId: `user_${userId}_${Date.now()}_backup`,
+    clean: true,
+    connectTimeout: 5000,
+    reconnectPeriod: 3000,
+    keepalive: 30,
+    resubscribe: true
+  };
 
-  const mqttClient = mqtt.connect(brokerUrl, mqttPrimaryConfig);
-
-  mqttClient.on('connect', function(connack) {
-    console.log('MQTT连接成功:', connack);
-
-    // 订阅主题
-    const topics = [
-      'rtdvalue/report',
-      'alarm/report',
-      'Raelalarm',
-      'realalarmtest',
-      'hisdatatest'
-    ];
-
-    topics.forEach(topic => {
-      mqttClient.subscribe(topic, function(err) {
-        if (!err) {
-          console.log('订阅主题成功:', topic);
-        } else {
-          console.error('订阅主题失败:', topic, err);
-        }
-      });
-    });
-  });
-
-  mqttClient.on('message', function(topic, message) {
-    try {
-      const parsedMessage = JSON.parse(message.toString());
-      
-      if (topic === 'rtdvalue/report') {
-        // 处理实时数据
-        if (parsedMessage.RTValue && Array.isArray(parsedMessage.RTValue)) {
-          console.log('收到实时数据，包含', parsedMessage.RTValue.length, '个设备，立即推送给前端');
-          // 立即通过WebSocket推送给前端
-          broadcastMessage({
-            type: 'realtime_data',
-            data: parsedMessage
-          });
-        } else if (parsedMessage.name) {
-          console.log('收到单个设备实时数据:', parsedMessage.name, '，立即推送给前端');
-          // 立即通过WebSocket推送给前端
-          broadcastMessage({
-            type: 'realtime_data',
-            data: {
-              RTValue: [parsedMessage]
-            }
-          });
-        }
-      } else if (topic === 'alarm/report' || topic === 'Raelalarm' || topic === 'realalarmtest') {
-        // 处理报警数据
-        if (parsedMessage.alarms && Array.isArray(parsedMessage.alarms)) {
-          alarmData = parsedMessage;
-          console.log('更新报警数据，包含', parsedMessage.alarms.length, '个报警');
-          // 立即通过WebSocket推送给前端
-          broadcastMessage({
-            type: 'alarm_data',
-            data: parsedMessage
-          });
-        } else {
-          // 处理单个报警数据
-          if (!alarmData.alarms) {
-            alarmData.alarms = [];
-          }
-          // 只保留最新的报警数据，限制数量
-          alarmData.alarms.unshift(parsedMessage);
-          if (alarmData.alarms.length > 100) {
-            alarmData.alarms = alarmData.alarms.slice(0, 100);
-          }
-          console.log('添加单个报警数据，立即推送给前端');
-          // 立即通过WebSocket推送给前端
-          broadcastMessage({
-            type: 'alarm_data',
-            data: {
-              alarms: [parsedMessage]
-            }
-          });
-        }
-      } else if (topic === 'hisdatatest') {
-        // 处理历史数据返回
-        console.log('收到历史数据:', parsedMessage);
-        // 这里可以添加历史数据处理逻辑
-      }
-    } catch (e) {
-      console.error('解析MQTT消息失败:', e);
+  try {
+    // 先尝试连接主服务器
+    let mqttClient = connectToMQTTServer(primaryConfig);
+    
+    // 如果主服务器连接失败，尝试备用服务器
+    if (!mqttClient) {
+      console.log('主MQTT服务器连接失败，尝试备用服务器');
+      mqttClient = connectToMQTTServer(backupConfig, true);
     }
-  });
 
-  mqttClient.on('error', function(err) {
-    console.error('MQTT连接错误:', err);
-  });
-
-  mqttClient.on('offline', function() {
-    console.log('MQTT连接断开');
-  });
-
-  return mqttClient;
-};
-
-// 初始化数据库连接
-const initDatabaseConnection = async () => {
-  await checkAndSwitchConnection();
-  // 每30秒检查一次连接状态
-  setInterval(checkAndSwitchConnection, 30000);
-};
-
-// 数据库查询函数
-const queryDatabase = (sql, values) => {
-  return new Promise((resolve, reject) => {
-    currentPool.execute(sql, values, (err, results) => {
-      if (err) {
-        console.error('数据库查询失败:', err.message);
-        // 立即检查连接状态
-        checkAndSwitchConnection().then(() => {
-          // 切换后重试一次
-          currentPool.execute(sql, values, (retryErr, retryResults) => {
-            if (retryErr) {
-              reject(retryErr);
-            } else {
-              resolve(retryResults);
-            }
-          });
-        });
-        return;
-      }
-      resolve(results);
-    });
-  });
-};
-
-
+    // 存储用户MQTT客户端
+    if (mqttClient) {
+      userMqttClients.set(userId, mqttClient);
+    } else {
+      console.warn('所有MQTT服务器连接失败，将在后台继续尝试重连');
+    }
+    
+    return mqttClient;
+  } catch (error) {
+    console.error('MQTT客户端初始化失败:', error);
+    return null;
+  }
+}
 
 // JWT验证中间件
 const authenticateToken = (req, res, next) => {
@@ -312,12 +396,12 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ success: false, message: '未提供认证令牌' });
+    return res.status(401).json({ code: 401, msg: '未提供认证令牌' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'default_secret_key', (err, user) => {
     if (err) {
-      return res.status(403).json({ success: false, message: '认证令牌无效' });
+      return res.status(403).json({ code: 403, msg: '认证令牌无效' });
     }
 
     req.user = user;
@@ -332,20 +416,30 @@ app.get('/', (req, res) => {
 
 // 健康检查接口
 app.get('/api/health', async (req, res) => {
-  const dbConnected = await checkAndSwitchConnection();
+  const dbConnected = await testConnection();
 
   res.json({ 
     status: 'ok', 
-    database: dbConnected ? (isUsingBackup ? 'backup' : 'main') : 'disconnected',
+    database: dbConnected ? 'main' : 'disconnected',
     timestamp: new Date().toISOString()
   });
 });
 
-// 登录接口
+// 登录接口 - 支持 /api/login 路径
+app.post('/api/login', async (req, res) => {
+  await handleLogin(req, res);
+});
+
+// 登录接口 - 支持 /api/auth/login 路径（兼容前端）
 app.post('/api/auth/login', async (req, res) => {
+  await handleLogin(req, res);
+});
+
+// 登录处理函数
+async function handleLogin(req, res) {
   try {
     const { username, password } = req.body;
-    console.log('登录请求:', { username, password: '******' });
+    console.log('登录请求:', { username });
     
     // 验证参数
     if (!username || !password) {
@@ -353,8 +447,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     // 从数据库查询用户
-    const userResults = await queryDatabase(
-      'SELECT * FROM web_user WHERE username = ?',
+    const [userResults] = await pool.execute(
+      'SELECT id, username, password, realname, factory_level, area_level, enabled FROM web_user WHERE username = ?',
       [username]
     );
     
@@ -364,19 +458,78 @@ app.post('/api/auth/login', async (req, res) => {
     
     const user = userResults[0];
     
+    // 检查账号是否启用
+    if (user.enabled !== 1) {
+      return res.status(403).json({ success: false, message: '账号已被禁用' });
+    }
+    
     // 验证密码
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    let passwordMatch;
+    console.log('开始验证密码:', { username, providedPassword: password, storedPassword: user.password });
+    
+    try {
+      // 尝试使用bcrypt验证（适用于加密密码）
+      console.log('尝试bcrypt验证');
+      passwordMatch = await bcrypt.compare(password, user.password);
+      console.log('bcrypt验证结果:', passwordMatch);
+      
+      // 如果bcrypt验证失败，尝试直接字符串比较（适用于明文密码）
+      if (!passwordMatch) {
+        console.log('bcrypt验证失败，尝试明文密码比较');
+        passwordMatch = (password === user.password);
+        console.log('明文密码比较结果:', passwordMatch);
+      }
+    } catch (error) {
+      // 如果bcrypt验证抛出异常，尝试直接字符串比较（适用于明文密码）
+      console.log('bcrypt验证抛出异常，尝试明文密码比较:', error.message);
+      passwordMatch = (password === user.password);
+      console.log('明文密码比较结果:', passwordMatch);
+    }
+    
+    // 额外的调试信息
+    console.log('密码长度比较:', { providedLength: password.length, storedLength: user.password.length });
+    console.log('密码严格相等:', password === user.password);
     
     if (!passwordMatch) {
+      console.log('密码验证失败:', { username, passwordMatch });
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
+    console.log('密码验证成功:', { username });
+
+    
+    // 【核心】位掩码解析厂区列表
+    const factories = parseFactoryLevel(user.factory_level);
+    console.log('用户权限解析:', { userId: user.id, factoryLevel: user.factory_level, factories });
+    
+    // 检查是否为超级管理员
+    const isSuperAdmin = user.factory_level === SUPER_ADMIN;
+    console.log('用户类型:', isSuperAdmin ? '超级管理员' : '普通用户');
+    
+    // 【核心】批量查询用户有权限的设备
+    const { deviceList } = await getUserDevices(user.id, factories, user.area_level, isSuperAdmin);
+    console.log('用户设备权限:', { userId: user.id, deviceCount: deviceList.length });
+    
+    // 【核心】厂区列表 → MQTT Topic列表映射
+    const mqttTopics = factoriesToTopics(factories);
+    console.log('用户MQTT订阅:', { userId: user.id, topics: mqttTopics });
+    
+    // 【核心】初始化MQTT客户端
+    initMQTTClient(user.id, mqttTopics);
+    console.log('MQTT客户端初始化完成');
+
+    
+    // 缓存用户信息（用于后续缓存刷新）
+    userInfoCache.set(user.id, {
+      factory_level: user.factory_level,
+      area_level: user.area_level
+    });
     
     // 生成JWT token
     const token = jwt.sign(
       {
         userId: user.id,
         username: user.username,
-        role: user.role || 'user'
+        role: user.area_level === SUPER_ADMIN ? 'admin' : 'user'
       },
       process.env.JWT_SECRET || 'default_secret_key',
       {
@@ -384,14 +537,17 @@ app.post('/api/auth/login', async (req, res) => {
       }
     );
     
-    // 返回成功响应
+    // 返回成功响应（兼容前端格式）
     res.json({
       success: true,
       token: token,
       user: {
         id: user.id,
         username: user.username,
-        role: user.role || 'user'
+        role: user.area_level === SUPER_ADMIN ? 'admin' : 'user'
+      },
+      data: {
+        allowedDevices: deviceList
       }
     });
     
@@ -399,40 +555,111 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('登录错误:', error);
     res.status(500).json({ success: false, message: '登录失败，请稍后重试' });
   }
+};
+
+// 历史数据查询接口
+app.get('/api/history', authenticateToken, async (req, res) => {
+  try {
+    const { userId, startTime, endTime } = req.query;
+    console.log('历史数据查询请求:', { userId, startTime, endTime });
+    
+    // 验证参数
+    if (!userId || !startTime || !endTime) {
+      return res.status(400).json({ code: 400, msg: '参数不能为空' });
+    }
+    
+    // 【核心】从内存缓存获取设备位号Set（禁止重复查询MySQL）
+    const deviceSet = userDeviceCache.get(userId);
+    if (!deviceSet) {
+      return res.status(401).json({ code: 401, msg: '用户未登录或缓存已过期' });
+    }
+    
+    const deviceNos = Array.from(deviceSet);
+    if (deviceNos.length === 0) {
+      return res.json({ code: 0, msg: 'success', data: [] });
+    }
+    
+    // 构建设备位号IN条件
+    const devicePlaceholders = deviceNos.map(() => '?').join(',');
+    
+    // 这里应该是查询历史数据的逻辑
+    // 由于历史数据存储方式未知，这里仅返回示例结构
+    // 实际实现时需要根据具体的历史数据存储方式调整
+    
+    res.json({
+      code: 0,
+      msg: 'success',
+      data: {
+        devices: deviceNos,
+        startTime: startTime,
+        endTime: endTime,
+        message: '历史数据查询接口已实现，实际数据需要根据存储方式调整'
+      }
+    });
+    
+  } catch (error) {
+    console.error('历史数据查询错误:', error);
+    res.status(500).json({ code: 500, msg: '查询失败，请稍后重试' });
+  }
+});
+
+// 退出登录接口
+app.post('/api/logout', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.user;
+    console.log('退出登录请求:', { userId });
+    
+    // 清理WebSocket连接
+    connectedClients.delete(userId);
+    
+    // 清理MQTT客户端
+    const mqttClient = userMqttClients.get(userId);
+    if (mqttClient) {
+      mqttClient.end();
+      userMqttClients.delete(userId);
+    }
+    
+    // 清理设备缓存
+    userDeviceCache.delete(userId);
+    // 清理用户信息缓存
+    userInfoCache.delete(userId);
+    
+    res.json({ code: 0, msg: '退出成功' });
+    
+  } catch (error) {
+    console.error('退出登录错误:', error);
+    res.status(500).json({ code: 500, msg: '退出失败，请稍后重试' });
+  }
 });
 
 // 获取设备列表接口
-app.get('/api/devices', async (req, res) => {
+app.get('/api/devices', authenticateToken, async (req, res) => {
   try {
     console.log('获取设备列表请求');
+    const { userId } = req.user;
     
-    // 从数据库获取所有设备信息
-    const deviceResults = await queryDatabase(
-      'SELECT DISTINCT device_no, description, unit, qty_min, qty_max, HH, H, L, LL, factory, level, is_major_hazard, is_sis FROM scada_web.device_data'
-    );
+    // 从用户信息缓存中获取用户权限信息
+    const userInfo = userInfoCache.get(userId);
+    if (!userInfo) {
+      console.error('用户信息缓存不存在');
+      return res.status(401).json({ success: false, message: '用户未登录或缓存已过期' });
+    }
     
-    console.log('设备列表获取结果:', { length: deviceResults.length });
+    // 解析用户厂区权限
+    const factories = parseFactoryLevel(userInfo.factory_level);
+    console.log('用户权限解析:', { userId, factoryLevel: userInfo.factory_level, factories });
     
-    // 格式化结果
-    const devices = deviceResults.map(item => ({
-      device_no: item.device_no,
-      description: item.description || '',
-      unit: item.unit || '',
-      qty_min: item.qty_min !== undefined && item.qty_min !== null ? item.qty_min : null,
-      qty_max: item.qty_max !== undefined && item.qty_max !== null ? item.qty_max : null,
-      HH: item.HH !== undefined && item.HH !== null ? item.HH : null,
-      H: item.H !== undefined && item.H !== null ? item.H : null,
-      L: item.L !== undefined && item.L !== null ? item.L : null,
-      LL: item.LL !== undefined && item.LL !== null ? item.LL : null,
-      factory: item.factory || null,
-      level: item.level || null,
-      is_major_hazard: item.is_major_hazard || null,
-      is_sis: item.is_sis || null
-    }));
+    // 检查是否为超级管理员
+    const isSuperAdmin = userInfo.factory_level === SUPER_ADMIN;
+    console.log('用户类型:', isSuperAdmin ? '超级管理员' : '普通用户');
+    
+    // 批量查询用户有权限的设备
+    const { deviceList } = await getUserDevices(userId, factories, userInfo.area_level, isSuperAdmin);
+    console.log('用户设备权限:', { userId, deviceCount: deviceList.length });
     
     res.json({
       success: true,
-      data: devices
+      data: deviceList
     });
     
   } catch (error) {
@@ -441,191 +668,65 @@ app.get('/api/devices', async (req, res) => {
   }
 });
 
-// 搜索设备接口
-app.get('/api/devices/search', async (req, res) => {
+// 刷新用户设备缓存
+async function refreshUserDeviceCache(userId) {
   try {
-    const { keyword } = req.query;
-    console.log('设备搜索请求:', { keyword });
+    console.log('开始刷新用户设备缓存:', { userId });
     
-    if (!keyword || keyword.trim() === '') {
-      return res.json({ success: true, data: [] });
+    // 从用户信息缓存中获取用户权限信息
+    const userInfo = userInfoCache.get(userId);
+    if (!userInfo) {
+      console.log('用户信息不存在，跳过缓存刷新:', { userId });
+      return;
     }
     
-    // 从数据库搜索设备
-    const deviceResults = await queryDatabase(
-      'SELECT DISTINCT device_no, description, unit, qty_min, qty_max, HH, H, L, LL, factory, level, is_major_hazard, is_sis FROM scada_web.device_data WHERE device_no LIKE ? LIMIT 50',
-      ['%' + keyword + '%']
-    );
+    // 解析用户厂区权限
+    const factories = parseFactoryLevel(userInfo.factory_level);
+    console.log('用户权限解析:', { userId, factoryLevel: userInfo.factory_level, factories });
     
-    console.log('设备搜索结果:', { length: deviceResults.length });
+    // 检查是否为超级管理员
+    const isSuperAdmin = userInfo.factory_level === SUPER_ADMIN;
+    console.log('用户类型:', isSuperAdmin ? '超级管理员' : '普通用户');
     
-    // 格式化结果
-    const devices = deviceResults.map(item => ({
-      device_no: item.device_no,
-      description: item.description || '',
-      unit: item.unit || '',
-      qty_min: item.qty_min !== undefined && item.qty_min !== null ? item.qty_min : null,
-      qty_max: item.qty_max !== undefined && item.qty_max !== null ? item.qty_max : null,
-      HH: item.HH !== undefined && item.HH !== null ? item.HH : null,
-      H: item.H !== undefined && item.H !== null ? item.H : null,
-      L: item.L !== undefined && item.L !== null ? item.L : null,
-      LL: item.LL !== undefined && item.LL !== null ? item.LL : null,
-      factory: item.factory || null,
-      level: item.level || null,
-      is_major_hazard: item.is_major_hazard || null,
-      is_sis: item.is_sis || null
-    }));
-    
-    res.json({ success: true, data: devices });
+    // 重新查询用户有权限的设备
+    const { deviceSet } = await getUserDevices(userId, factories, userInfo.area_level, isSuperAdmin);
+    console.log('缓存刷新完成，设备数量:', { userId, deviceCount: deviceSet.size });
     
   } catch (error) {
-    console.error('设备搜索错误:', error);
-    res.status(500).json({ success: false, message: '搜索失败，请稍后重试' });
+    console.error('刷新用户设备缓存失败:', error);
   }
-});
+}
 
-// 历史数据查询接口
-app.post('/api/history/data', async (req, res) => {
+// 刷新所有用户设备缓存
+async function refreshAllDeviceCache() {
   try {
-    const { device_no, start_time, end_time, interval = 1000, count = 20 } = req.body;
-    console.log('历史数据查询请求:', { device_no, start_time, end_time, interval, count });
+    console.log('开始刷新所有用户设备缓存，当前登录用户数:', userInfoCache.size);
     
-    // 验证参数
-    if (!device_no || (!Array.isArray(device_no) && !device_no.length)) {
-      return res.status(400).json({ success: false, message: '设备列表不能为空' });
+    // 遍历所有已登录用户
+    for (const userId of userInfoCache.keys()) {
+      await refreshUserDeviceCache(userId);
     }
     
-    if (!start_time || !end_time) {
-      return res.status(400).json({ success: false, message: '时间范围不能为空' });
-    }
-    
-    // 构建查询消息
-    const queryMessage = {
-      method: 'HistoryData',
-      topic: 'hisdatatest',
-      names: Array.isArray(device_no) ? device_no : [device_no],
-      seq: Date.now(),
-      mode: 0,
-      begintime: new Date(start_time).getTime(),
-      endtime: new Date(end_time).getTime(),
-      count: count,
-      interval: interval,
-      timeout: 20000
-    };
-    
-    console.log('历史数据查询参数:', queryMessage);
-    
-    // 返回成功响应，前端将直接通过MQTT发送查询请求
-    res.json({
-      success: true,
-      message: '历史数据查询参数已准备',
-      data: {
-        request_id: queryMessage.seq,
-        devices: queryMessage.names,
-        query_message: queryMessage
-      }
-    });
-    
+    console.log('所有用户设备缓存刷新完成');
   } catch (error) {
-    console.error('历史数据查询错误:', error);
-    res.status(500).json({ success: false, message: '查询失败，请稍后重试' });
+    console.error('刷新所有用户设备缓存失败:', error);
   }
-});
-
-// 历史报警查询接口
-app.post('/api/history/alarm', async (req, res) => {
-  try {
-    const { device_no, start_time, end_time } = req.body;
-    console.log('历史报警查询请求:', { device_no, start_time, end_time });
-    
-    // 验证参数
-    if (!start_time || !end_time) {
-      return res.status(400).json({ success: false, message: '时间范围不能为空' });
-    }
-    
-    // 构建查询消息
-    const queryMessage = {
-      method: 'HistoryAlarm',
-      topic: 'hisdatatest',
-      names: device_no && Array.isArray(device_no) ? device_no : (device_no ? [device_no] : []),
-      seq: Date.now(),
-      mode: 0,
-      begintime: new Date(start_time).getTime(),
-      endtime: new Date(end_time).getTime(),
-      timeout: 20000
-    };
-    
-    console.log('历史报警查询参数:', queryMessage);
-    
-    // 返回成功响应
-    res.json({
-      success: true,
-      message: '历史报警查询参数已准备',
-      data: {
-        request_id: queryMessage.seq,
-        devices: queryMessage.names,
-        query_message: queryMessage
-      }
-    });
-    
-  } catch (error) {
-    console.error('历史报警查询错误:', error);
-    res.status(500).json({ success: false, message: '查询失败，请稍后重试' });
-  }
-});
-
-// 实时数据接口
-app.get('/api/realtime/data', async (req, res) => {
-  try {
-    console.log('获取实时数据请求');
-    
-    // 由于现在使用WebSocket推送实时数据，此接口返回空数据并提示前端使用WebSocket
-    res.json({
-      success: true,
-      message: '请使用WebSocket连接获取实时数据',
-      data: {
-        RTValue: []
-      }
-    });
-    
-  } catch (error) {
-    console.error('获取实时数据错误:', error);
-    res.status(500).json({ success: false, message: '获取实时数据失败，请稍后重试' });
-  }
-});
-
-// 报警数据接口
-app.get('/api/alarm/data', async (req, res) => {
-  try {
-    console.log('获取报警数据请求');
-    
-    // 返回存储的报警数据
-    res.json({
-      success: true,
-      message: '报警数据获取成功',
-      data: alarmData
-    });
-    
-  } catch (error) {
-    console.error('获取报警数据错误:', error);
-    res.status(500).json({ success: false, message: '获取报警数据失败，请稍后重试' });
-  }
-});
+}
 
 // 启动服务器
 server.listen(port, async () => {
   console.log('Server running on http://localhost:' + port);
   console.log('WebSocket server running on ws://localhost:' + port);
+  
   try {
-    // 初始化数据库连接
-    await initDatabaseConnection();
-    console.log('数据库连接初始化完成');
-    
-    // 初始化MQTT连接
-    const mqttClient = initMQTTConnection();
-    console.log('MQTT连接初始化完成');
-    
+    // 测试数据库连接
+    await testConnection();
     console.log('服务器启动成功，可以通过 http://localhost:' + port + ' 访问');
+    
+    // 设置定时刷新缓存（每5分钟刷新一次）
+    console.log('设置设备缓存定时刷新，每5分钟执行一次');
+    setInterval(refreshAllDeviceCache, 5 * 60 * 1000);
+    
   } catch (error) {
     console.error('服务器启动时出错:', error);
   }
@@ -634,9 +735,13 @@ server.listen(port, async () => {
 // 捕获未处理的异常
 process.on('uncaughtException', (error) => {
   console.error('未捕获的异常:', error);
+  console.error('异常堆栈:', error.stack);
 });
 
 // 捕获未处理的Promise拒绝
 process.on('unhandledRejection', (reason, promise) => {
   console.error('未处理的Promise拒绝:', reason);
+  if (reason && reason.stack) {
+    console.error('拒绝原因堆栈:', reason.stack);
+  }
 });
