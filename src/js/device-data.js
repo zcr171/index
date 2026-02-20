@@ -1,6 +1,13 @@
 // 模拟间隔变量
 let simulationInterval = null;
 
+// 表格更新防抖，每500ms最多刷新一次，避免频繁DOM操作导致卡顿
+let updateTableTimer = null;
+function debouncedUpdateTable() {
+    clearTimeout(updateTableTimer);
+    updateTableTimer = setTimeout(updateDeviceDataTable, 500);
+}
+
 /**
  * 处理实时数据
  * 功能：处理从MQTT接收到的设备实时数据，更新设备数据存储和UI
@@ -15,11 +22,6 @@ let simulationInterval = null;
  * 6. 更新综合概况页面统计数据
  */
 function processRealTimeData(data) {
-    // 检查数据是否包含clientId，并且与当前客户端ID匹配
-    if (data.clientId && data.clientId !== clientId) {
-        console.log('忽略其他客户端的实时数据:', data.clientId, '(当前客户端:', clientId, ')');
-        return;
-    }
     
     if (data.name) {
         const deviceName = data.name;
@@ -27,12 +29,12 @@ function processRealTimeData(data) {
             // 如果设备不存在，创建新设备记录
             deviceData[deviceName] = {
                 // 基本参数
-                value: data.value || 0,
+                value: data.value || data.v || data.val || data.currentValue || data.RTValue || data.rtValue || 0,
                 type: data.type || null,
                 quality: data.quality || null,
                 timestamp: data.timestamp || null,
                 desc: data.desc || '',
-                unit: '',
+                unit: device.unit || data.unit || '',
                 
                 // 报警阈值
                 hhValue: data.hhValue || data.HH || null,
@@ -51,7 +53,7 @@ function processRealTimeData(data) {
             };
         } else {
             // 如果设备已存在，只更新实时值和相关参数，保留从数据库获取的信息
-            deviceData[deviceName].value = data.value || deviceData[deviceName].value;
+            deviceData[deviceName].value = data.value || data.v || data.val || data.currentValue || data.RTValue || data.rtValue || deviceData[deviceName].value;
             deviceData[deviceName].type = data.type || deviceData[deviceName].type;
             deviceData[deviceName].quality = data.quality || deviceData[deviceName].quality;
             deviceData[deviceName].timestamp = data.timestamp || deviceData[deviceName].timestamp;
@@ -66,43 +68,10 @@ function processRealTimeData(data) {
             deviceData[deviceName].updateTime = new Date().toLocaleString('zh-CN');
         }
         
-        // 检查设备实时值是否在报警范围内
-        const deviceValue = parseFloat(data.value) || 0;
-        const hValue = parseFloat(deviceData[deviceName].hValue || data.hValue || data.H) || Infinity;
-        const lValue = parseFloat(deviceData[deviceName].lValue || data.lValue || data.L) || -Infinity;
+        // 报警逻辑已移至后端，通过专门的MQTT报警主题推送，前端不再自动判断报警
+        // 避免重复报警和误判，报警完全由SCADA系统统一产生
         
-        // 检查值是否在正常范围内（低于高限，高于低限）
-        const isInNormalRange = deviceValue < hValue && deviceValue > lValue;
-        
-        // 查找该设备的未处理或已确认的报警
-        const deviceAlarms = alarmData.filter(alarm => 
-            alarm.deviceName === deviceName && 
-            (alarm.status === '未处理' || alarm.status === '已确认')
-        );
-        
-        // 仅当有明确的报警取消消息时才取消报警
-        // 移除基于实时值的自动取消逻辑，避免误取消
-        if (deviceAlarms.length === 0 && !isInNormalRange) {
-            // 没有报警且值不在正常范围内，创建新报警
-            const alarmItem = {
-                time: new Date().toLocaleString('zh-CN'),
-                deviceName: deviceName,
-                type: deviceValue > hValue ? '高值报警' : '低值报警',
-                value: deviceValue,
-                limit: deviceValue > hValue ? hValue : lValue,
-                status: '未处理',
-                desc: deviceData[deviceName].desc || data.desc || ''
-            };
-            alarmData.unshift(alarmItem);
-            if (alarmData.length > 50) {
-                alarmData = alarmData.slice(0, 50);
-            }
-            
-            // 更新报警表格
-            updateAlarmDataTable();
-        }
-        
-        debouncedUpdateDeviceDataTable();
+        debouncedUpdateTable();
         updateHistoryDeviceSelect();
         updateOverviewStats();
     }
@@ -136,11 +105,13 @@ function updateDeviceDataTable() {
             
             // 检查值是否为数字，不是数字则显示为"--"，是数字则保留两位小数
             const displayValue = isNaN(device.value) ? '--' : parseFloat(device.value).toFixed(2);
+            // 数值加上单位
+            const valueWithUnit = device.unit ? `${displayValue} ${device.unit}` : displayValue;
             
             row.innerHTML = `
                 <td class="px-3 py-2 text-center">${deviceName}</td>
                 <td class="px-3 py-2">${device.desc || '--'}</td>
-                <td class="px-3 py-2 text-center font-medium">${displayValue}</td>
+                <td class="px-3 py-2 text-center font-medium">${valueWithUnit}</td>
                 <td class="px-3 py-2 text-center">${device.minRange !== undefined && device.minRange !== null && device.maxRange !== undefined && device.maxRange !== null ? `${device.minRange}-${device.maxRange} ${device.unit || ''}` : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.hhValue !== undefined && device.hhValue !== null ? device.hhValue : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.hValue !== undefined && device.hValue !== null ? device.hValue : '--'}</td>
@@ -287,3 +258,22 @@ function updateOverviewStats() {
     document.getElementById('alarm-count').textContent = alarmCount;
     document.getElementById('total-alarms').textContent = alarmCount;
 }
+
+// 暴露到全局作用域，供其他模块调用
+window.fetchDevicesFromBackend = fetchDevicesFromBackend;
+window.updateDeviceDataTable = updateDeviceDataTable;
+window.debouncedUpdateTable = debouncedUpdateTable;
+window.deviceData = deviceData;
+
+// 页面加载完成后自动获取设备信息
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('device-data.js加载完成，准备获取设备信息...');
+    // 检查是否已经登录
+    const token = localStorage.getItem('token');
+    if (token && window.location.pathname !== '/login.html') {
+        setTimeout(() => {
+            console.log('已登录，开始获取设备信息...');
+            fetchDevicesFromBackend();
+        }, 300);
+    }
+});

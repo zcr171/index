@@ -1,5 +1,34 @@
 // 主入口文件
 
+// 全局请求拦截：处理异地登录提示
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    const response = await originalFetch.apply(this, args);
+    
+    // 检查401状态（未授权）
+    if (response.status === 401) {
+        try {
+            const data = await response.clone().json();
+            // 如果是异地登录提示，强制跳转到登录页
+            if (data.msg && data.msg.includes('其他地方登录')) {
+                alert('您的账号已在其他设备登录，您已被强制下线');
+                // 清除本地登录信息
+                localStorage.removeItem('token');
+                localStorage.removeItem('username');
+                localStorage.removeItem('realname');
+                localStorage.removeItem('factoryLevel');
+                // 跳转到登录页
+                window.location.href = '/login.html';
+                return response;
+            }
+        } catch (e) {
+            // 忽略JSON解析错误
+        }
+    }
+    
+    return response;
+};
+
 /**
  * 更新系统时间
  * 功能：实时更新系统时间显示
@@ -19,7 +48,7 @@ function updateSystemTime() {
 function setDefaultTimeValues() {
     // 设置历史数据查询默认时间
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 10 * 60 * 1000);
     
     // 格式化时间为YYYY-MM-DDTHH:MM格式
     const formatTime = (date) => {
@@ -176,6 +205,59 @@ function initTableResizing() {
     console.log('表格列宽调整功能已初始化');
 }
 
+// 跳转到对应页面
+window.navigateToPage = function(pageId) {
+    // 隐藏所有页面
+    document.querySelectorAll('.page-content').forEach(page => {
+        page.classList.add('hidden');
+    });
+    // 显示目标页面
+    const targetPage = document.getElementById(pageId);
+    if (targetPage) {
+        targetPage.classList.remove('hidden');
+    }
+    // 高亮对应的菜单项
+    document.querySelectorAll('.menu-item').forEach(item => {
+        if (item.dataset.target === pageId) {
+            item.classList.add('bg-white/10');
+        } else {
+            item.classList.remove('bg-white/10');
+        }
+    });
+};
+
+// 报警订阅状态：默认未订阅
+    window.alarmSubscribed = false;
+
+// 切换报警订阅/取消订阅
+window.toggleAlarmSubscription = function() {
+    const btn = document.getElementById('alarm-subscribe-btn');
+    if (!btn) return;
+    
+    window.alarmSubscribed = !window.alarmSubscribed;
+    
+    // 发送订阅/取消订阅请求到后端
+    if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+        window.ws.send(JSON.stringify({
+            type: 'alarm_subscribe',
+            state: window.alarmSubscribed ? 0 : 1
+        }));
+    }
+    
+    // 更新按钮状态
+    if (window.alarmSubscribed) {
+        btn.innerHTML = '<i class="fa fa-bell mr-1 text-xs"></i> 订阅报警';
+        btn.classList.remove('bg-danger');
+        btn.classList.add('bg-success');
+        alert('已开启实时报警订阅');
+    } else {
+        btn.innerHTML = '<i class="fa fa-bell-slash mr-1 text-xs"></i> 取消订阅';
+        btn.classList.remove('bg-success');
+        btn.classList.add('bg-danger');
+        alert('已关闭实时报警订阅');
+    }
+};
+
 /**
  * 启动MySQL服务器状态检查
  * 功能：检查主备MySQL服务器状态
@@ -192,6 +274,15 @@ function startMySQLServersStatusCheck() {
 document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('页面加载完成，开始初始化...');
+        
+        // 权限控制：超级管理员专属功能
+        const factoryLevel = localStorage.getItem('factoryLevel');
+        const adminMenuGroup = document.getElementById('admin-menu-group');
+        
+        if (factoryLevel === '99' && adminMenuGroup) {
+            // 超级管理员，显示系统管理菜单
+            adminMenuGroup.style.display = 'block';
+        }
         
         // 更新系统时间
         updateSystemTime();
@@ -275,17 +366,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // 初始化综合概况页面
         initOverviewPage();
         
-        // 从后端获取设备信息
-        setTimeout(function() {
-            console.log('页面加载完成，从后端获取设备信息...');
-            fetchDevicesFromBackend().then(function() {
-                // 设备列表获取完成后再连接后端服务
-                console.log('设备列表获取完成，开始连接后端服务...');
-                console.log('设备数据数量:', Object.keys(deviceData).length);
-                console.log('设备数据示例:', Object.keys(deviceData).slice(0, 5));
-                connectMQTT();
-            });
-        }, 500);
+        // 设备信息由device-data.js自动获取，这里直接连接MQTT
+setTimeout(() => {
+    connectMQTT();
+}, 500);
         
         // 定期从后端更新设备信息，确保量程信息保持最新
         setInterval(function() {

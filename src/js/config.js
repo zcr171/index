@@ -15,5 +15,5 @@ function getClientId() {
     return id;
 }
 
-// 后端API基础URL
-const API_BASE_URL = 'http://localhost:3003/api';
+// 后端API基础URL（自动适配当前访问地址）
+const API_BASE_URL = window.location.origin + '/api';

@@ -45,10 +45,10 @@ function initLoginFunctionality() {
         const loginBtn = document.getElementById('login-btn');
         if (loginBtn) {
             // 在登录页面，绑定登录事件
-            console.log('登录按钮找到，绑定点击事件');
+            console.log('登录按钮找到，绑定点击和回车事件');
             
-            // 添加点击事件监听器
-            loginBtn.addEventListener('click', function() {
+            // 登录处理函数
+            const handleLogin = function() {
                 try {
                     console.log('登录按钮点击事件触发');
                     
@@ -88,6 +88,8 @@ function initLoginFunctionality() {
                                 localStorage.setItem('token', data.token);
                                 localStorage.setItem('userRole', data.user.role);
                                 localStorage.setItem('loginUser', data.user.username);
+                                // 存储用户权限信息
+                                localStorage.setItem('factoryLevel', data.user.factory_level || '0');
                                 
                                 // 登录成功后跳转到主页面
                                 console.log('登录成功，跳转到主页面');
@@ -118,7 +120,31 @@ function initLoginFunctionality() {
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = '<i class="fa fa-sign-in mr-1"></i> 登录';
                 }
+            };
+            
+            // 绑定点击事件
+            loginBtn.addEventListener('click', handleLogin);
+            
+            // 绑定表单回车提交事件
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // 阻止表单默认提交行为
+                handleLogin();
             });
+        }
+        
+        // 全局监听回车键，不管在哪个输入框按回车都登录
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const username = document.getElementById('login-username');
+                const password = document.getElementById('login-password');
+                // 如果当前焦点在登录页的输入框
+                if (document.activeElement === username || document.activeElement === password) {
+                    handleLogin();
+                }
+            }
+        });
         } else {
             // 在主页面，不显示错误提示
             console.log('登录按钮未找到，可能在主页面');

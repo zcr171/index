@@ -20,31 +20,40 @@ function connectWebSocket() {
         }
     }
     
-    // 创建WebSocket连接，传递userId参数
-    const wsUrl = userId ? `ws://localhost:3003?userId=${userId}` : 'ws://localhost:3003';
+    // 创建WebSocket连接，传递userId参数（自动适配当前访问地址）
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = userId ? `${wsProtocol}//${window.location.host}?userId=${userId}` : `${wsProtocol}//${window.location.host}`;
     console.log('WebSocket连接URL:', wsUrl);
-    ws = new WebSocket(wsUrl);
+    window.ws = new WebSocket(wsUrl);
     
     // 连接成功
-    ws.onopen = function() {
+    window.ws.onopen = function() {
         console.log('WebSocket连接成功');
         // 更新MQTT状态灯
         updateMQTTStatusLights();
     };
     
     // 接收消息
-    ws.onmessage = function(event) {
-        try {
-            const message = JSON.parse(event.data);
-            console.log('收到WebSocket消息:', message.type);
+    window.ws.onmessage = function(event) {
+    try {
+        const message = JSON.parse(event.data);
+        console.log('收到WebSocket消息:', message);
             
             // 处理实时数据
             if (message.type === 'realtime_data' && message.data) {
                 if (message.data.RTValue && Array.isArray(message.data.RTValue)) {
-                    console.log('收到实时数据，包含', message.data.RTValue.length, '个设备');
+                    console.log('收到实时数据，包含', message.data.RTValue.length, '个设备:', message.data.RTValue);
                     message.data.RTValue.forEach(deviceData => {
+                        console.log('处理单个设备数据:', deviceData);
                         processRealTimeData(deviceData);
                     });
+                    // 处理完后防抖更新表格
+                    if (window.debouncedUpdateTable) {
+                        window.debouncedUpdateTable();
+                    } else {
+                        updateDeviceDataTable();
+                    }
+                    console.log('实时数据处理完成，当前deviceData数量:', Object.keys(deviceData).length);
                 }
             }
             // 处理报警数据
@@ -56,13 +65,31 @@ function connectWebSocket() {
                     });
                 }
             }
+            // 处理历史数据
+            else if (message.type === 'history_data' && message.data) {
+                if (window.processHistoryData) {
+                    window.processHistoryData(message); // 直接传完整消息
+                }
+            }
+            // 处理新的实时报警推送
+            else if (message.type === 'alarm' && message.data) {
+                console.log('收到新的实时报警:', message.data);
+                processAlarmData(message.data);
+            }
+            // 处理历史报警查询结果
+            else if (message.type === 'history_alarm_result' && message.data) {
+                console.log('收到历史报警查询结果:', message.data);
+                if (window.renderHistoryAlarmTable) {
+                    window.renderHistoryAlarmTable(message.data);
+                }
+            }
         } catch (error) {
             console.error('解析WebSocket消息失败:', error);
         }
     };
     
     // 连接关闭
-    ws.onclose = function() {
+    window.ws.onclose = function() {
         console.log('WebSocket连接关闭');
         // 更新MQTT状态灯
         updateMQTTStatusLights();
@@ -71,7 +98,7 @@ function connectWebSocket() {
     };
     
     // 连接错误
-    ws.onerror = function(error) {
+    window.ws.onerror = function(error) {
         console.error('WebSocket连接错误:', error);
         // 更新MQTT状态灯
         updateMQTTStatusLights();
@@ -91,9 +118,9 @@ function connectMQTT() {
 function disconnectMQTT() {
     console.log('断开与后端服务的连接');
     // 关闭WebSocket连接
-    if (ws) {
-        ws.close();
-        ws = null;
+    if (window.ws) {
+        window.ws.close();
+        window.ws = null;
     }
 }
 
@@ -150,16 +177,16 @@ function updateMQTTStatusLights() {
     const backupStatus = document.getElementById('mqtt-backup-status');
     
     if (primaryStatus) {
-        primaryStatus.className = 'status-indicator ' + (ws && ws.readyState === WebSocket.OPEN ? 'status-online' : 'status-offline');
+        primaryStatus.className = 'status-indicator ' + (window.ws && window.ws.readyState === WebSocket.OPEN ? 'status-online' : 'status-offline');
     }
     
     if (backupStatus) {
         // 备用状态灯也使用相同的状态，因为我们只有一个WebSocket连接
-        backupStatus.className = 'status-indicator ' + (ws && ws.readyState === WebSocket.OPEN ? 'status-online' : 'status-offline');
+        backupStatus.className = 'status-indicator ' + (window.ws && window.ws.readyState === WebSocket.OPEN ? 'status-online' : 'status-offline');
     }
     
     console.log('MQTT状态灯更新:', {
-        connected: ws && ws.readyState === WebSocket.OPEN,
-        readyState: ws ? ws.readyState : 'not initialized'
+        connected: window.ws && window.ws.readyState === WebSocket.OPEN,
+        readyState: window.ws ? window.ws.readyState : 'not initialized'
     });
 }

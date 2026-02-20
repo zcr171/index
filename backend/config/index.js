@@ -1,0 +1,49 @@
+require('dotenv').config();
+
+module.exports = {
+  // 服务配置
+  PORT: process.env.PORT || 3003,
+  JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
+  SUPER_ADMIN_LEVEL: 99,
+
+  // MySQL配置
+  DB_CONFIG: {
+    host: process.env.MYSQL_HOST || 'localhost',
+    port: process.env.MYSQL_PORT || 3306,
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || 'industrial',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  },
+
+  // MQTT配置
+  MQTT_CONFIG: {
+    host: process.env.MQTT_HOST || 'localhost',
+    port: process.env.MQTT_PORT || 1883,
+    username: process.env.MQTT_USERNAME || '',
+    password: process.env.MQTT_PASSWORD || '',
+    clientIdPrefix: 'industrial-backend-',
+    connectTimeout: 5000,
+    reconnectPeriod: 1000
+  },
+
+  // 工厂权限映射
+  FACTORY_MAP: {
+    RD: 2,
+    QH: 4,
+    JH: 8,
+    HS: 16,
+    DW: 32
+  },
+
+  // MQTT主题映射
+  FACTORY_TOPIC_MAP: {
+    2: 'rdvalue',
+    4: 'qhvalue',
+    8: 'jhvalue',
+    16: 'hsvalue',
+    32: 'dwvalue'
+  }
+};
