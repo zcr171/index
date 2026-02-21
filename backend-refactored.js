@@ -52,6 +52,9 @@ let alarmSubscribedCount = 0;
 // 保存最近发起历史报警查询的用户ID（解决SCADA固定返回seq=0的问题）
 let lastHistoryAlarmUserId = null;
 
+// 历史查询映射表：key=seq(13位时间戳), value=userId，解决多用户并发串数据
+const historyAlarmQueryMap = new Map();
+
 // 浙大中控SCADA报警配置（放最前面，避免函数引用时未定义）
 const SCADA_ALARM_TOPIC = 'SupconScadaRealAlarm'; // SCADA报警服务主题
 const RECEIVE_ALARM_TOPIC = 'backend/real/alarm'; // 我们自己接收报警的主题（实时报警已经正常工作，保持不变）
@@ -123,14 +126,29 @@ wss.on('connection', async (ws, req) => {
           console.log('收到WebSocket消息:', data);
           
           // 处理发布MQTT消息请求
-          if (data.type === 'publish_mqtt' && data.topic && data.payload) {
-            const mqttClient = userMqttClients.get(userId);
-            if (mqttClient && mqttClient.connected) {
-              // 如果是历史报警查询，立即记录当前用户ID，不需要等publish完成（解决SCADA返回太快找不到用户的问题）
-              if (data.topic === 'SupconScadaHisAlarm') {
-                lastHistoryAlarmUserId = userId;
-                console.log('✅ 历史报警查询用户ID已记录:', userId);
-              }
+            if (data.type === 'publish_mqtt' && data.topic && data.payload) {
+              const mqttClient = userMqttClients.get(userId);
+              if (mqttClient && mqttClient.connected) {
+                // 历史查询通用处理（报警+数据）
+                if (data.topic === 'SupconScadaHisAlarm' || data.topic === 'SupconScadaHisData') {
+                  const isAlarm = data.topic === 'SupconScadaHisAlarm';
+                  if (isAlarm) {
+                    lastHistoryAlarmUserId = userId;
+                    console.log('✅ 历史报警查询用户ID已记录:', userId);
+                  }
+                  
+                  // 保存seq->用户ID映射，解决多用户并发串数据
+                  const seq = data.payload.seq;
+                  if (seq !== undefined) {
+                    historyAlarmQueryMap.set(seq, userId);
+                    console.log(`✅ 历史查询映射已保存 seq:${seq} -> 用户ID:${userId}, 类型:${isAlarm ? '报警' : '数据'}`);
+                    
+                    // 1分钟后自动删除过期映射，避免内存泄漏
+                    setTimeout(() => {
+                      historyAlarmQueryMap.delete(seq);
+                    }, 60 * 1000);
+                  }
+                }
               
 
               
@@ -490,13 +508,8 @@ function initMQTTClient(userId, topics) {
     });
 
     mqttClient.on('message', function(topic, message) {
-      console.log('全局MQTT收到消息 主题:', topic, '内容:', message.toString()); // 临时打印所有消息
-
-      
       try {
         const parsedMessage = JSON.parse(message.toString());
-        console.log('收到MQTT消息原始结构:', JSON.stringify(parsedMessage, null, 2));
-        console.log('收到MQTT消息:', topic, '包含', parsedMessage.RTValue ? parsedMessage.RTValue.length : 0, '个设备数据');
         
         // 检查消息格式：实时数据
         if (parsedMessage.RTValue && Array.isArray(parsedMessage.RTValue)) {
@@ -507,11 +520,7 @@ function initMQTTClient(userId, topics) {
           parsedMessage.RTValue.forEach(device => {
             const deviceNo = device.name; // MQTT消息中的设备标识符字段是name
             if (deviceSet && deviceSet.has(deviceNo)) {
-              console.log('设备有权限，处理数据:', deviceNo, 'value:', device.value);
               authorizedDevices.push(device);
-            } else {
-              console.log('设备无权限，丢弃数据:', deviceNo);
-              // 无权限的设备位号数据，直接丢弃
             }
           });
           
@@ -527,22 +536,27 @@ function initMQTTClient(userId, topics) {
           }
         }
         // 处理历史数据返回（hisdatatest主题）
-        else if (topic === 'hisdatatest') {
-          console.log('收到历史数据返回:', parsedMessage);
-          // 推送给对应用户
-          sendToUser(userId, {
-            type: 'history_data',
-            data: parsedMessage
-          });
-        }
-        // 检查消息格式：历史数据返回
-        else if (parsedMessage.method === 'HistoryData' && parsedMessage.result && parsedMessage.result.data) {
-          console.log('收到历史数据返回，推送给前端');
-          // 直接推送给前端处理
-          sendToUser(userId, {
-            type: 'history_data',
-            data: parsedMessage
-          });
+        else if (topic === 'hisdatatest' || (parsedMessage.method === 'HistoryData' && parsedMessage.result && parsedMessage.result.data)) {
+          console.log(`收到历史数据返回，共${parsedMessage.result?.data?.length || 0}条, seq:${parsedMessage.seq}`);
+          
+          // 优先按seq匹配用户，确保推送给正确的用户
+          const targetUserId = historyAlarmQueryMap.get(parsedMessage.seq) || lastHistoryAlarmUserId;
+          const userWs = targetUserId ? connectedClients.get(targetUserId.toString()) : null;
+          
+          if (userWs && userWs.readyState === WebSocket.OPEN) {
+            userWs.send(JSON.stringify({
+              type: 'history_data',
+              data: parsedMessage
+            }));
+            console.log(`✅ 已向用户 ${targetUserId} 推送历史数据，共${parsedMessage.result?.data?.length || 0}条`);
+          } else {
+            console.log(`用户 ${targetUserId} 没有在线的WebSocket连接，历史数据消息未发送`);
+          }
+          
+          // 用完删除映射
+          if (historyAlarmQueryMap.has(parsedMessage.seq)) {
+            historyAlarmQueryMap.delete(parsedMessage.seq);
+          }
         }
         else {
           console.error('MQTT消息格式错误，无法识别消息类型:', parsedMessage);
@@ -674,7 +688,7 @@ app.post('/api/auth/login', async (req, res) => {
 // 登录处理函数
 async function handleLogin(req, res) {
   try {
-    console.log('收到登录请求:', req.method, req.path, req.body);
+
     const { username, password } = req.body;
     console.log('登录请求:', { username });
     
@@ -702,30 +716,19 @@ async function handleLogin(req, res) {
     
     // 验证密码
     let passwordMatch;
-    console.log('开始验证密码:', { username, providedPassword: password, storedPassword: user.password });
     
     try {
       // 尝试使用bcrypt验证（适用于加密密码）
-      console.log('尝试bcrypt验证');
       passwordMatch = await bcrypt.compare(password, user.password);
-      console.log('bcrypt验证结果:', passwordMatch);
       
       // 如果bcrypt验证失败，尝试直接字符串比较（适用于明文密码）
       if (!passwordMatch) {
-        console.log('bcrypt验证失败，尝试明文密码比较');
         passwordMatch = (password === user.password);
-        console.log('明文密码比较结果:', passwordMatch);
       }
     } catch (error) {
       // 如果bcrypt验证抛出异常，尝试直接字符串比较（适用于明文密码）
-      console.log('bcrypt验证抛出异常，尝试明文密码比较:', error.message);
       passwordMatch = (password === user.password);
-      console.log('明文密码比较结果:', passwordMatch);
     }
-    
-    // 额外的调试信息
-    console.log('密码长度比较:', { providedLength: password.length, storedLength: user.password.length });
-    console.log('密码严格相等:', password === user.password);
     
     if (!passwordMatch) {
       console.log('密码验证失败:', { username, passwordMatch });
@@ -786,6 +789,7 @@ async function handleLogin(req, res) {
       user: {
         id: user.id,
         username: user.username,
+        realname: user.realname,
         role: user.area_level === SUPER_ADMIN ? 'admin' : 'user',
         factory_level: user.factory_level
       },
@@ -1271,12 +1275,17 @@ function initGlobalMainMqttClient() {
       try {
         const hisAlarmMsg = JSON.parse(message.toString());
         if (hisAlarmMsg.method === 'HistoryAlarm') {
-          console.log(`收到SCADA历史报警查询结果，共${hisAlarmMsg.data?.length || 0}条`);
-          
-          // 发送给最近发起查询的用户
-          const userId = lastHistoryAlarmUserId;
-          const userWs = userId ? connectedClients.get(userId) : null;
-          lastHistoryAlarmUserId = null;
+            console.log(`收到SCADA历史报警查询结果，共${hisAlarmMsg.data?.length || 0}条, seq:${hisAlarmMsg.seq}`);
+            
+            // 优先按seq匹配用户，匹配不到就用最近的用户ID兜底（双保险确保有返回）
+            const userId = historyAlarmQueryMap.get(hisAlarmMsg.seq) || lastHistoryAlarmUserId;
+            const userWs = userId ? connectedClients.get(userId) : null;
+            
+            // 用完删除映射，避免内存泄漏
+            if (historyAlarmQueryMap.has(hisAlarmMsg.seq)) {
+              historyAlarmQueryMap.delete(hisAlarmMsg.seq);
+            }
+            lastHistoryAlarmUserId = null;
           
           if (userWs && userWs.readyState === WebSocket.OPEN) {
             // 按用户权限过滤历史报警

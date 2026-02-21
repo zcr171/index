@@ -7,10 +7,11 @@ function checkLoginStatus() {
     if (token && userRole) {
         console.log('检测到已登录状态...');
         
-        // 更新登录人信息
+        // 更新登录人信息（显示真实姓名）
         const loginUserElement = document.getElementById('login-user');
         if (loginUserElement) {
-            loginUserElement.textContent = loginUser || 'admin';
+            const loginUserRealname = localStorage.getItem('loginUserRealname');
+            loginUserElement.textContent = loginUserRealname || loginUser || 'admin';
         }
         
         // 检查是否在主页面
@@ -86,8 +87,10 @@ function initLoginFunctionality() {
                                 
                                 // 存储登录信息
                                 localStorage.setItem('token', data.token);
+                                localStorage.setItem('userId', data.user.id);
                                 localStorage.setItem('userRole', data.user.role);
                                 localStorage.setItem('loginUser', data.user.username);
+                                localStorage.setItem('loginUserRealname', data.user.realname || data.user.username);
                                 // 存储用户权限信息
                                 localStorage.setItem('factoryLevel', data.user.factory_level || '0');
                                 
