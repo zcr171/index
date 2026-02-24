@@ -1065,6 +1065,34 @@ app.delete('/api/admin/users/:id', authenticateToken, adminAuth, async (req, res
   }
 });
 
+// 法律法规搜索接口
+app.post('/api/laws/search', authenticateToken, async (req, res) => {
+  try {
+    const { keyword } = req.body;
+    
+    let query = `
+      SELECT law_title, law_type, issuing_no, implement_date, file_path, file_name 
+      FROM laws_docs 
+      WHERE status = 1
+    `;
+    let params = [];
+    
+    if (keyword) {
+      query += ` AND (law_title LIKE ? OR issuing_no LIKE ?)`;
+      params = [`%${keyword}%`, `%${keyword}%`];
+    }
+    
+    // 执行查询
+    const [rows] = await pool.execute(query, params);
+    
+    // 返回结果
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('搜索法规失败:', error);
+    res.json({ success: false, message: '搜索失败，请稍后重试' });
+  }
+});
+
 // 管理员：获取所有设备列表
 app.get('/api/admin/devices', authenticateToken, adminAuth, async (req, res) => {
   try {

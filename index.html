@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工业互联网系统</title>
+    <title>企业管理与维护网</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script src="https://cdn.bootcdn.net/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
@@ -134,7 +134,7 @@
     <div id="main-page" class="flex h-screen overflow-hidden">
         <div class="sidebar w-40 flex flex-col py-6 px-2 text-white">
             <div class="mb-12 text-center">
-                <h1 class="text-xl font-bold">工业互联网</h1>
+                <h1 class="text-xl font-bold">企业管理与运维</h1>
                 <p class="text-xs text-gray-400">Industrial Internet</p>
             </div>
             <div class="flex flex-col space-y-3 w-full">
@@ -149,7 +149,7 @@
                     <button class="menu-group-header flex items-center justify-between w-full px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-group="industry-overview">
                         <div class="flex items-center space-x-2">
                             <i class="fa fa-industry text-sm"></i>
-                            <span class="text-sm font-medium">工业综合概况</span>
+                            <span class="text-sm font-medium">数据中心</span>
                         </div>
                         <i class="fa fa-chevron-right text-xs transition-transform duration-300"></i>
                     </button>
@@ -160,7 +160,7 @@
                         </button>
                         <button class="menu-item flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="alarm-data">
                             <i class="fa fa-bell text-xs"></i>
-                            <span class="text-xs font-medium">实时报警数据</span>
+                            <span class="text-xs font-medium">实时报警</span>
                         </button>
                         <button class="menu-item flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="history-data">
                             <i class="fa fa-history text-xs"></i>
@@ -168,17 +168,17 @@
                         </button>
                         <button class="menu-item flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="history-alarm-data">
                             <i class="fa fa-exclamation-circle text-xs"></i>
-                            <span class="text-xs font-medium">历史报警数据</span>
+                            <span class="text-xs font-medium">历史报警</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- 一级菜单：工业数据库 -->
+                <!-- 一级菜单：资料中心 -->
                 <div class="menu-group">
                     <button class="menu-group-header flex items-center justify-between w-full px-2 py-2 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-group="industry-db">
                         <div class="flex items-center space-x-2">
                             <i class="fa fa-database text-sm"></i>
-                            <span class="text-sm font-medium">工业数据库</span>
+                            <span class="text-sm font-medium">资料中心</span>
                         </div>
                         <i class="fa fa-chevron-right text-xs transition-transform duration-300"></i>
                     </button>
@@ -197,11 +197,11 @@
                         </button>
                         <button class="menu-item flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="db-drawings">
                             <i class="fa fa-paint-brush text-xs"></i>
-                            <span class="text-xs font-medium">企业图纸</span>
+                            <span class="text-xs font-medium">图纸中心</span>
                         </button>
                         <button class="menu-item flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-all duration-300" data-target="db-maintain">
-                            <i class="fa fa-wrench text-xs"></i>
-                            <span class="text-xs font-medium">检修规范</span>
+                            <i class="fa fa-graduation-cap text-xs"></i>
+                            <span class="text-xs font-medium">学习中心</span>
                         </button>
                     </div>
                 </div>
@@ -579,7 +579,7 @@
                 </div>
             </header>
             <main class="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-gray-50" style="min-height: 0;">
-                <div id="overview" class="page-content w-full min-h-full">
+                <div id="overview" class="page-content hidden w-full min-h-full">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                         <div class="card">
                             <div class="card-header pb-0">
@@ -949,11 +949,11 @@
                     <div class="card mb-1 w-full">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-0 p-1">
                             <div class="md:col-span-1">
-                                <label class="block text-xs font-medium text-gray-600 mb-0.25">已选位号</label>
-                                <div id="selected-devices-container" class="flex flex-wrap gap-1 max-h-24 overflow-y-auto border border-gray-200 rounded-lg p-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-0.25">已选设备</label>
+                                <div id="selected-devices-container" class="grid grid-cols-2 gap-1 max-h-16 border border-gray-200 rounded-lg p-1">
                                     <!-- 已选设备标签将在这里动态添加 -->
                                     <div class="col-span-2 text-center text-xs text-gray-400 py-2" id="no-devices-message">
-                                        无已选位号
+                                        无已选设备
                                     </div>
                                 </div>
                             </div>
@@ -1088,6 +1088,114 @@
                     </div>
                 </div>
                 <!-- 设备管理页面 end -->
+
+                <!-- 资料中心页面 start -->
+                <div id="db-laws" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">法律法规</h2>
+                        <div class="card mb-4">
+                            <div class="p-4">
+                                <div class="flex space-x-2">
+                                    <input type="text" id="law-search" placeholder="搜索法规名称或发布文号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
+                                    <button onclick="searchLaws()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                        <i class="fa fa-search mr-1"></i> 搜索
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="p-4">
+                                <div id="law-list-container">
+                                    <div class="text-center py-12" id="no-laws-message">
+                                        <i class="fa fa-gavel text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-500">无相关数据</p>
+                                    </div>
+                                    <table id="law-list" class="w-full text-sm text-left text-gray-700 hidden">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3">法规名称</th>
+                                                <th scope="col" class="px-6 py-3">法律类型</th>
+                                                <th scope="col" class="px-6 py-3">发布文号</th>
+                                                <th scope="col" class="px-6 py-3">施行日期</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="db-standards" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">标准规范</h2>
+                        <div class="card">
+                            <div class="p-6">
+                                <div class="text-center py-12">
+                                    <i class="fa fa-book text-4xl text-gray-400 mb-4"></i>
+                                    <p class="text-gray-500">标准规范内容将在此显示</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="db-rules" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">企业制度</h2>
+                        <div class="card">
+                            <div class="p-6">
+                                <div class="text-center py-12">
+                                    <i class="fa fa-file-text text-4xl text-gray-400 mb-4"></i>
+                                    <p class="text-gray-500">企业制度内容将在此显示</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="db-drawings" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">图纸中心</h2>
+                        <div class="card">
+                            <div class="p-6">
+                                <div class="text-center py-12">
+                                    <i class="fa fa-paint-brush text-4xl text-gray-400 mb-4"></i>
+                                    <p class="text-gray-500">图纸中心内容将在此显示</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="db-maintain" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">学习中心</h2>
+                        <div class="card">
+                            <div class="p-6">
+                                <div class="text-center py-12">
+                                    <i class="fa fa-graduation-cap text-4xl text-gray-400 mb-4"></i>
+                                    <p class="text-gray-500">学习中心内容将在此显示</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 资料中心页面 end -->
+
+                <!-- 化工行业工具页面 start -->
+                <div id="chem-tools" class="page-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">化工行业工具</h2>
+                        <div class="card">
+                            <div class="p-6">
+                                <div class="text-center py-12">
+                                    <i class="fa fa-flask text-4xl text-gray-400 mb-4"></i>
+                                    <p class="text-gray-500">化工行业工具内容将在此显示</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 化工行业工具页面 end -->
             </main>
         </div>
     </div>
@@ -1167,33 +1275,56 @@
             data.forEach((device, index) => {
                 if (!device.name || !device.datalist) return;
                 
-                // 计算当前设备的数值范围
-                const values = device.datalist.map(p => p.val).filter(v => v != null);
-                const minVal = Math.min(...values);
-                const maxVal = Math.max(...values);
-                const range = maxVal - minVal;
-                // 扩展一点点范围，避免曲线贴边
-                const yMin = minVal - range * 0.05;
-                const yMax = maxVal + range * 0.05;
+                // 获取设备的量程范围
+                const deviceInfo = window.deviceData ? window.deviceData[device.name] : null;
+                const minRange = deviceInfo?.minRange || 0;
+                const maxRange = deviceInfo?.maxRange || 100;
+                const deviceRange = maxRange - minRange;
+                
+                // 归一化函数：将实际值转换为0-100的百分比
+                const normalize = (value) => {
+                    if (deviceRange === 0) return 50; // 避免除以0
+                    return ((value - minRange) / deviceRange) * 100;
+                };
+                
+                // 反归一化函数：将0-100的百分比转换为实际值
+                const denormalize = (percent) => {
+                    return (percent / 100) * deviceRange + minRange;
+                };
                 
                 // 为每个设备创建独立Y轴（全部隐藏，只保留一个共用的Y轴显示）
                 yAxis.push({
                     type: 'value',
-                    min: yMin,
-                    max: yMax,
+                    min: 0,
+                    max: 100,
+                    interval: 25, // 强制间隔为25，确保刻度为0, 25, 50, 75, 100
                     show: index === 0, // 只显示第一个Y轴，其他隐藏
                     position: 'left',
                     offset: 0,
                     axisLine: { show: index === 0 },
-                    axisTick: { show: index === 0 },
-                    axisLabel: { show: index === 0 },
+                    axisTick: {
+                        show: index === 0,
+                        interval: 25, // 强制间隔为25
+                        alignWithLabel: true
+                    },
+                    axisLabel: { 
+                        show: index === 0,
+                        formatter: function(value) {
+                            // Y轴刻度：显示原始的高度百分比值
+                            return value + '%';
+                        }
+                    },
+                    splitNumber: 4, // 4个分割线，5个刻度
                     splitLine: { show: index === 0 }
                 });
                 
-                // 映射数据
+                // 映射数据并归一化
                 const valueMap = new Map();
                 device.datalist.forEach(p => valueMap.set(p.time, p.val));
-                const seriesData = sortedTimes.map(t => valueMap.get(t) || null);
+                const seriesData = sortedTimes.map(t => {
+                    const val = valueMap.get(t);
+                    return val !== null && val !== undefined ? normalize(val) : null;
+                });
                 
                 // 检查是否选中
                 const isSelected = window.selectedSeriesName === device.name;
@@ -1211,6 +1342,14 @@
                     },
                     itemStyle: {
                         opacity: isSelected ? 1 : 0.6
+                    },
+                    // 自定义Tooltip格式化，显示原始值
+                    tooltip: {
+                        formatter: function(params) {
+                            const originalValue = valueMap.get(sortedTimes[params.dataIndex]);
+                            const unit = window.selectedDevices ? window.selectedDevices.get(device.name)?.unit || 'kPa' : 'kPa';
+                            return `${params.axisValue}<br/>${device.name}: ${originalValue.toFixed(2)} ${unit}`;
+                        }
                     }
                 });
             });
@@ -1222,10 +1361,16 @@
                     formatter: function(params) {
                         let html = params[0].axisValue + '<br/>';
                         params.forEach(item => {
-                            const val = typeof item.value === 'number' ? item.value.toFixed(2) : item.value;
-                            // 直接从全局Map取单位，有真实值就用，没有就用kPa兜底
-                            const unit = window.selectedDevices.get(item.seriesName)?.unit || 'kPa';
-                            html += `<span style="color:${item.color}">● ${item.seriesName}: ${val} ${unit}</span><br/>`;
+                            // 找到原始数据
+                            const deviceIndex = data.findIndex(d => d.name === item.seriesName);
+                            if (deviceIndex !== -1) {
+                                const device = data[deviceIndex];
+                                const valueMap = new Map();
+                                device.datalist.forEach(p => valueMap.set(p.time, p.val));
+                                const originalValue = valueMap.get(sortedTimes[item.dataIndex]);
+                                const unit = window.selectedDevices ? window.selectedDevices.get(device.name)?.unit || 'kPa' : 'kPa';
+                                html += `<span style="color:${item.color}">● ${device.name}: ${originalValue.toFixed(2)} ${unit}</span><br/>`;
+                            }
                         });
                         return html;
                     }
@@ -1264,7 +1409,7 @@
                 });
 
                 // 处理选中逻辑：获取点击的位号，选中的线条加粗
-                const clickedName = Object.keys(params.name)[0] || params.name;
+                const clickedName = params.name; // 直接获取点击的图例名称
                 window.selectedSeriesName = clickedName;
                 window.updateHistoryChart(data);
             });
@@ -1369,7 +1514,119 @@
             document.getElementById('device-search')?.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') window.searchDevices();
             });
+            
+            // 法律法规搜索回车事件
+            document.getElementById('law-search')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchLaws();
+            });
         });
+        
+        // 法律法规搜索函数
+        async function searchLaws() {
+            const searchInput = document.getElementById('law-search');
+            const keyword = searchInput ? searchInput.value.trim() : '';
+            const container = document.getElementById('law-list-container');
+            
+            // 显示加载状态
+            if (container) {
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">搜索中...</p></div>';
+            }
+            
+            try {
+                // 调用API获取数据
+                const response = await fetch(`${API_BASE_URL}/laws/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                
+                // 渲染结果
+                renderLawList(data.success ? data.data : []);
+            } catch (error) {
+                console.error('搜索法规失败:', error);
+                
+                // 显示错误信息
+                if (container) {
+                    container.innerHTML = '<div class="text-center py-12"><i class="fa fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-red-500">搜索失败，请稍后重试</p></div>';
+                }
+            }
+        }
+        
+        // 渲染法规列表
+        function renderLawList(laws) {
+            const container = document.getElementById('law-list-container');
+            
+            if (!container) return;
+            
+            if (laws.length === 0) {
+                // 显示无数据信息
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-gavel text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">无相关数据</p></div>';
+            } else {
+                // 创建表格结构
+                const tableHTML = `
+                    <table id="law-list" class="w-full text-sm text-left text-gray-700">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">法规名称</th>
+                                <th scope="col" class="px-6 py-3">法律类型</th>
+                                <th scope="col" class="px-6 py-3">发布文号</th>
+                                <th scope="col" class="px-6 py-3">施行日期</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${laws.map(law => `
+                                <tr class="hover:bg-gray-50 cursor-pointer" data-law='${JSON.stringify(law)}'>
+                                    <td class="px-6 py-4">${law.law_title}</td>
+                                    <td class="px-6 py-4">${law.law_type}</td>
+                                    <td class="px-6 py-4">${law.issuing_no}</td>
+                                    <td class="px-6 py-4">${law.implement_date}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                // 更新容器内容
+                container.innerHTML = tableHTML;
+                
+                // 添加点击事件监听器
+                const rows = container.querySelectorAll('tr[data-law]');
+                rows.forEach(row => {
+                    row.addEventListener('click', () => {
+                        const lawData = JSON.parse(row.dataset.law);
+                        openLawPDF(lawData);
+                    });
+                });
+            }
+        }
+        
+        // 打开法规PDF
+        function openLawPDF(law) {
+            // 拼接PDF路径
+            const pdfPath = law.file_path + law.file_name;
+            
+            // 新开标签页打开PDF
+            const newWindow = window.open(pdfPath, '_blank');
+            
+            // 设置新标签页标题
+            if (newWindow) {
+                // 延迟设置标题，确保页面已加载
+                setTimeout(() => {
+                    newWindow.document.title = law.law_title;
+                }, 100);
+            }
+        }
+        
+
         
         // 历史搜索函数，直接写在页面确保能找到
         window.searchDevices = function() {
@@ -1458,12 +1715,12 @@
             
             // 创建设备标签
             const deviceTag = document.createElement('div');
-            deviceTag.className = 'history-device-tag bg-primary/10 text-primary px-2 py-0.5 rounded-lg text-xs flex items-center space-x-1';
+            deviceTag.className = 'history-device-tag bg-gray-100 px-2 py-1 rounded-full text-xs flex items-center space-x-1';
             deviceTag.dataset.deviceName = deviceName;
             deviceTag.innerHTML = `
                 <span>${deviceName}</span>
-                <button class="text-primary hover:text-primary/80" onclick="window.removeDeviceFromSelection('${deviceName}')">
-                    <i class="fa fa-times"></i>
+                <button class="text-gray-400 hover:text-gray-600" onclick="window.removeDeviceFromSelection('${deviceName}')">
+                    <i class="fa fa-times-circle"></i>
                 </button>
             `;
             
