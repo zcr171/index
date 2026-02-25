@@ -1145,12 +1145,12 @@
                                 <div class="relative">
                                     <div class="flex space-x-2">
                                         <input type="text" id="standard-search" placeholder="搜索标准名称或编号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
-                                        <!-- 搜索下拉列表 -->
-                                        <div id="standard-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
-                                        </div>
                                         <button onclick="queryStandard()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
                                             <i class="fa fa-search mr-1"></i> 查询
                                         </button>
+                                    </div>
+                                    <!-- 搜索下拉列表 -->
+                                    <div id="standard-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
                                     </div>
                                 </div>
                                 <!-- 分类卡片 -->
@@ -1204,13 +1204,34 @@
                                 <div class="relative">
                                     <div class="flex space-x-2">
                                         <input type="text" id="rule-search" placeholder="搜索制度名称或编号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
-                                        <!-- 搜索下拉列表 -->
-                                        <div id="rule-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
-                                        </div>
                                         <button onclick="queryRule()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
                                             <i class="fa fa-search mr-1"></i> 查询
                                         </button>
                                     </div>
+                                    <!-- 搜索下拉列表 -->
+                                    <div id="rule-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+                                <!-- 分类卡片 -->
+                                <div class="flex flex-wrap gap-2 mt-3">
+                                    <button onclick="filterRules('all')" class="px-3 py-1 text-xs bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
+                                        全部
+                                    </button>
+                                    <button onclick="filterRules('safety')" class="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors">
+                                        安全管理
+                                    </button>
+                                    <button onclick="filterRules('production')" class="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors">
+                                        生产管理
+                                    </button>
+                                    <button onclick="filterRules('equipment')" class="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors">
+                                        设备管理
+                                    </button>
+                                    <button onclick="filterRules('quality')" class="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors">
+                                        质量管理
+                                    </button>
+                                    <button onclick="filterRules('other')" class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors">
+                                        其他
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1305,15 +1326,27 @@
             console.log('收到历史数据返回:', message);
             try {
                 const mqttData = message.data || message;
-                if (mqttData.result && mqttData.result.data) {
-                    const historyData = mqttData.result.data;
-                    window.historyData = historyData;
-                    // 渲染图表和表格
-                    window.updateHistoryChart(historyData);
-                    window.updateHistoryTable(historyData);
-                    // 自动切换到图表视图
-                    window.switchDisplayMode('chart');
-                    console.log('历史数据渲染完成，共', historyData.length, '个设备');
+                
+                // 检查是否是SCADA系统返回的历史数据格式
+                if (mqttData.method === 'HistoryData') {
+                    // 这里应该是SCADA系统返回的历史数据
+                    console.log('SCADA历史数据格式:', mqttData);
+                    
+                    // 检查是否包含result.data（标准格式）
+                    if (mqttData.result && mqttData.result.data) {
+                        const historyData = mqttData.result.data;
+                        window.historyData = historyData;
+                        // 渲染图表和表格
+                        window.updateHistoryChart(historyData);
+                        window.updateHistoryTable(historyData);
+                        // 自动切换到图表视图
+                        window.switchDisplayMode('chart');
+                        console.log('历史数据渲染完成，共', historyData.length, '个设备');
+                    } else {
+                        // 这是查询请求格式，不是历史数据返回
+                        console.log('这是历史数据查询请求，不是返回数据');
+                        alert('这是历史数据查询请求，不是返回数据');
+                    }
                 } else {
                     console.error('历史数据格式错误:', message);
                     alert('历史数据格式错误，请检查返回内容');
@@ -2425,8 +2458,8 @@
                     return;
                 }
                 
-                // 由于表中没有file_name字段，使用制度编号作为文件名
-                const fileName = rule.policy_code ? rule.policy_code.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf' : '';
+                // 使用制度名称作为文件名
+                const fileName = rule.policy_name ? rule.policy_name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_') + '.pdf' : '';
                 if (!fileName) {
                     console.error('文件名不存在');
                     alert('文件名不存在');
@@ -2434,7 +2467,7 @@
                 }
                 
                 // 构造标准路径
-                const pdfPath = '/static/material_center/rules_docs/' + fileName;
+                const pdfPath = '/static/material_center/policy_docs/' + fileName;
                 console.log('PDF路径:', pdfPath);
                 
                 // 使用<a>标签打开PDF

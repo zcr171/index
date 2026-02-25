@@ -6,6 +6,7 @@ const { PORT } = require('./config');
 const { testConnection } = require('./db');
 const { setupGlobalErrorHandlers } = require('./utils');
 const { initWebSocketServer } = require('./websocket');
+const { initGlobalMQTTClient } = require('./mqtt');
 const routes = require('./routes');
 
 // 初始化全局错误处理
@@ -41,6 +42,10 @@ async function startServer() {
   try {
     // 测试数据库连接
     await testConnection();
+
+    // 初始化全局MQTT客户端
+    initGlobalMQTTClient();
+    console.log('全局MQTT客户端初始化完成');
 
     server.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);

@@ -13,7 +13,38 @@ function processAlarmData(data) {
         return;
     }
     
-    if (data.deviceName) {
+    // 处理报警数组
+    if (Array.isArray(data)) {
+        console.log('收到报警数组，共', data.length, '条报警');
+        data.forEach(alarm => {
+            if (alarm.deviceName) {
+                const alarmItem = {
+                    time: alarm.time || new Date().toLocaleString('zh-CN'),
+                    deviceName: alarm.deviceName,
+                    type: alarm.type || (parseFloat(alarm.value) > parseFloat(alarm.hValue || alarm.H) ? '高值报警' : '低值报警'),
+                    value: alarm.value || 0,
+                    limit: alarm.limit || (parseFloat(alarm.value) > parseFloat(alarm.hValue || alarm.H) ? alarm.hValue || alarm.H : alarm.lValue || alarm.L),
+                    status: alarm.status || '未处理',
+                    desc: alarm.desc || (deviceData[alarm.deviceName] ? deviceData[alarm.deviceName].desc : '')
+                };
+                
+                // 添加到报警数据数组
+                alarmData.unshift(alarmItem);
+                if (alarmData.length > 50) {
+                    alarmData = alarmData.slice(0, 50);
+                }
+            }
+        });
+        
+        // 更新报警数据表格
+        updateAlarmDataTable();
+        
+        // 更新综合概况页面统计数据
+        updateOverviewStats();
+    }
+    // 处理单个报警
+    else if (data.deviceName) {
+        console.log('收到单个报警:', data.deviceName);
         const alarmItem = {
             time: data.time || new Date().toLocaleString('zh-CN'),
             deviceName: data.deviceName,
@@ -35,6 +66,10 @@ function processAlarmData(data) {
         
         // 更新综合概况页面统计数据
         updateOverviewStats();
+    }
+    // 处理其他情况
+    else {
+        console.log('收到无法处理的报警数据格式:', data);
     }
 }
 

@@ -30,18 +30,29 @@ async function getUserDevices(userId, factories, areaLevel, isSuperAdmin) {
 
   if (isSuperAdmin) {
     // 超级管理员返回所有设备
-    query = 'SELECT device_no, description, unit, qty_min, qty_max, H, L, HH, LL, type, factory, level, is_major_hazard, is_sis FROM device';
+    query = 'SELECT device_no, description, unit, qty_max, qty_min, H, L, HH, LL, factory, level, is_major_hazard, is_sis FROM device_data';
   } else {
     // 普通用户根据工厂权限和区域等级查询
+    if (factories.length === 0) {
+      console.log('用户无工厂权限，返回空设备列表');
+      return [];
+    }
+    
     const placeholders = factories.map(() => '?').join(',');
-    query = `SELECT device_no, description, unit, qty_min, qty_max, H, L, HH, LL, type, factory, level, is_major_hazard, is_sis 
-             FROM device 
-             WHERE factory IN (${placeholders}) AND level <= ?`;
+    query = `SELECT device_no, description, unit, qty_max, qty_min, H, L, HH, LL, factory, level, is_major_hazard, is_sis 
+             FROM device_data 
+             WHERE factory IN (${placeholders}) AND (level IS NULL OR level <= ?)`;
     params = [...factories, areaLevel];
   }
 
-  const [results] = await pool.execute(query, params);
-  return results;
+  try {
+    const [results] = await pool.execute(query, params);
+    console.log(`查询到 ${results.length} 个设备`);
+    return results;
+  } catch (error) {
+    console.error('查询设备权限失败:', error);
+    return [];
+  }
 }
 
 module.exports = {

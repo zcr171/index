@@ -45,5 +45,12 @@ module.exports = {
     8: 'jhvalue',
     16: 'hsvalue',
     32: 'dwvalue'
+  },
+
+  // SCADA主题配置
+  SCADA_TOPICS: {
+    HISTORY_DATA: 'hisdatatest',
+    HISTORY_ALARM: 'SupconScadaHisAlarm',
+    REALTIME_ALARM: 'backend/real/alarm'
   }
 };

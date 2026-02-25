@@ -2,7 +2,7 @@ const WebSocket = require('ws');
 const { getUserById, getUserDevices } = require('../db');
 const { parseFactoryLevel, factoriesToTopics } = require('../utils');
 const { initMQTTClient } = require('../mqtt');
-const { connectedClients, userInfoCache, userDeviceCache, userMqttClients } = require('../cache');
+const { connectedClients, userInfoCache, userDeviceCache, userMqttClients, userAlarmSubscribed, historyAlarmQueryMap } = require('../cache');
 
 
 let wss = null;
@@ -113,6 +113,70 @@ function initWebSocketServer(server) {
       }
     });
     
+    // 处理消息
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('收到WebSocket消息:', data);
+        
+        // 处理发布MQTT消息请求
+        if (data.type === 'publish_mqtt' && data.topic && data.payload) {
+          const mqttClient = userMqttClients.get(userId);
+          if (mqttClient && mqttClient.connected) {
+            // 历史查询通用处理（报警+数据）
+            if (data.topic === 'SupconScadaHisAlarm' || data.topic === 'SupconScadaHisData') {
+              const isAlarm = data.topic === 'SupconScadaHisAlarm';
+              if (isAlarm) {
+                console.log('✅ 历史报警查询用户ID已记录:', userId);
+              }
+              
+              // 保存seq->用户ID映射，解决多用户并发串数据
+              const seq = data.payload.seq;
+              if (seq !== undefined) {
+                historyAlarmQueryMap.set(seq, userId);
+                console.log(`✅ 历史查询映射已保存 seq:${seq} -> 用户ID:${userId}, 类型:${isAlarm ? '报警' : '数据'}`);
+                
+                // 1分钟后自动删除过期映射，避免内存泄漏
+                setTimeout(() => {
+                  historyAlarmQueryMap.delete(seq);
+                }, 60 * 1000);
+              }
+              
+              console.log(`✅ 历史查询请求已发送 主题:${data.topic}`);
+              
+              // 发布消息到MQTT服务器
+              mqttClient.publish(data.topic, JSON.stringify(data.payload), (err) => {
+                if (err) {
+                  console.error(`发布MQTT消息失败 主题:${data.topic}`, err);
+                } else {
+                  console.log(`成功发布历史查询请求 主题:${data.topic}`);
+                }
+              });
+            }
+          } else {
+            console.error(`用户 ${userId} MQTT客户端未连接`);
+          }
+        }
+        
+        // 处理报警订阅/取消订阅请求
+        else if (data.type === 'alarm_subscribe' && data.state !== undefined) {
+          const isSubscribe = data.state === 0;
+          console.log(`用户 ${userId} 请求${isSubscribe ? '订阅' : '取消订阅'}实时报警`);
+          
+          // 更新用户订阅状态
+          if (isSubscribe) {
+            userAlarmSubscribed.set(userId, true);
+            console.log(`✅ 用户 ${userId} 已订阅实时报警`);
+          } else {
+            userAlarmSubscribed.delete(userId);
+            console.log(`✅ 用户 ${userId} 已取消订阅实时报警`);
+          }
+        }
+      } catch (error) {
+        console.error('解析WebSocket消息失败:', error);
+      }
+    });
+
     // 处理错误
     ws.on('error', (error) => {
       console.error('WebSocket连接错误:', error);

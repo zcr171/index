@@ -37,10 +37,10 @@ function processRealTimeData(data) {
                 unit: device.unit || data.unit || '',
                 
                 // 报警阈值
-                hhValue: data.hhValue || data.HH || null,
-                hValue: data.hValue || data.H || null,
-                lValue: data.lValue || data.L || null,
-                llValue: data.llValue || data.LL || null,
+                hhValue: data.hhValue !== undefined ? data.hhValue : (data.HH !== undefined ? data.HH : null),
+                hValue: data.hValue !== undefined ? data.hValue : (data.H !== undefined ? data.H : null),
+                lValue: data.lValue !== undefined ? data.lValue : (data.L !== undefined ? data.L : null),
+                llValue: data.llValue !== undefined ? data.llValue : (data.LL !== undefined ? data.LL : null),
                 
                 // 量程
                 minRange: null,
@@ -60,10 +60,10 @@ function processRealTimeData(data) {
             // 不要覆盖从数据库获取的描述和报警阈值
             // 只在数据库信息不存在时使用MQTT数据
             deviceData[deviceName].desc = deviceData[deviceName].desc || data.desc || '';
-            deviceData[deviceName].hhValue = deviceData[deviceName].hhValue || data.hhValue || data.HH || null;
-            deviceData[deviceName].hValue = deviceData[deviceName].hValue || data.hValue || data.H || null;
-            deviceData[deviceName].lValue = deviceData[deviceName].lValue || data.lValue || data.L || null;
-            deviceData[deviceName].llValue = deviceData[deviceName].llValue || data.llValue || data.LL || null;
+            deviceData[deviceName].hhValue = deviceData[deviceName].hhValue !== null ? deviceData[deviceName].hhValue : (data.hhValue !== undefined ? data.hhValue : (data.HH !== undefined ? data.HH : null));
+            deviceData[deviceName].hValue = deviceData[deviceName].hValue !== null ? deviceData[deviceName].hValue : (data.hValue !== undefined ? data.hValue : (data.H !== undefined ? data.H : null));
+            deviceData[deviceName].lValue = deviceData[deviceName].lValue !== null ? deviceData[deviceName].lValue : (data.lValue !== undefined ? data.lValue : (data.L !== undefined ? data.L : null));
+            deviceData[deviceName].llValue = deviceData[deviceName].llValue !== null ? deviceData[deviceName].llValue : (data.llValue !== undefined ? data.llValue : (data.LL !== undefined ? data.LL : null));
             // 不要覆盖从数据库获取的量程信息
             deviceData[deviceName].updateTime = new Date().toLocaleString('zh-CN');
         }
@@ -118,8 +118,8 @@ function updateDeviceDataTable() {
                 <td class="px-3 py-2 text-center">${device.lValue !== undefined && device.lValue !== null ? device.lValue : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.llValue !== undefined && device.llValue !== null ? device.llValue : '--'}</td>
                 <td class="px-3 py-2 text-center">${device.factory !== undefined && device.factory !== null ? device.factory : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.is_major_hazard !== undefined && device.is_major_hazard !== null ? (device.is_major_hazard === 1 ? '是' : '否') : '--'}</td>
-                <td class="px-3 py-2 text-center">${device.is_sis !== undefined && device.is_sis !== null ? (device.is_sis === 1 ? '是' : '否') : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.is_major_hazard !== undefined && device.is_major_hazard !== null ? (device.is_major_hazard === '是' || device.is_major_hazard === 1 ? '是' : '否') : '--'}</td>
+                <td class="px-3 py-2 text-center">${device.is_sis !== undefined && device.is_sis !== null ? (device.is_sis === '是' || device.is_sis === 1 ? '是' : '否') : '--'}</td>
             `;
             
             fragment.appendChild(row);
@@ -175,38 +175,38 @@ async function fetchDevicesFromBackend() {
                             value: 0,
                             desc: device.description !== undefined && device.description !== null ? device.description : '',
                             unit: device.unit !== undefined && device.unit !== null ? device.unit : '',
-                            minRange: device.qty_min !== undefined && device.qty_min !== null ? device.qty_min : null,
-                            maxRange: device.qty_max !== undefined && device.qty_max !== null ? device.qty_max : null,
-                            hhValue: device.HH !== undefined && device.HH !== null ? device.HH : null,
-                            hValue: device.H !== undefined && device.H !== null ? device.H : null,
-                            lValue: device.L !== undefined && device.L !== null ? device.L : null,
-                            llValue: device.LL !== undefined && device.LL !== null ? device.LL : null,
+                            minRange: device.qty_min !== undefined ? device.qty_min : null,
+                            maxRange: device.qty_max !== undefined ? device.qty_max : null,
+                            hhValue: device.HH !== undefined ? device.HH : null,
+                            hValue: device.H !== undefined ? device.H : null,
+                            lValue: device.L !== undefined ? device.L : null,
+                            llValue: device.LL !== undefined ? device.LL : null,
                             type: device.type !== undefined && device.type !== null ? device.type : '',
                             quality: device.quality !== undefined && device.quality !== null ? device.quality : null,
                             timestamp: device.timestamp !== undefined && device.timestamp !== null ? device.timestamp : null,
                             alarmCount: device.alarmCount !== undefined && device.alarmCount !== null ? device.alarmCount : 0,
                             status: device.status !== undefined && device.status !== null ? device.status : '正常',
-                            factory: device.factory !== undefined && device.factory !== null ? device.factory : null,
-                            level: device.level !== undefined && device.level !== null ? device.level : null,
-                            is_major_hazard: device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : null,
-                            is_sis: device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : null,
+                            factory: device.factory !== undefined ? device.factory : null,
+                            level: device.level !== undefined ? device.level : null,
+                            is_major_hazard: device.is_major_hazard !== undefined ? device.is_major_hazard : null,
+                            is_sis: device.is_sis !== undefined ? device.is_sis : null,
                             updateTime: new Date().toLocaleString('zh-CN')
                         };
                     } else {
                         // 更新现有设备信息
                         deviceData[deviceName].desc = device.description !== undefined && device.description !== null ? device.description : deviceData[deviceName].desc;
                         deviceData[deviceName].unit = device.unit !== undefined && device.unit !== null ? device.unit : deviceData[deviceName].unit;
-                        deviceData[deviceName].minRange = device.qty_min !== undefined && device.qty_min !== null ? device.qty_min : deviceData[deviceName].minRange;
-                        deviceData[deviceName].maxRange = device.qty_max !== undefined && device.qty_max !== null ? device.qty_max : deviceData[deviceName].maxRange;
-                        deviceData[deviceName].hhValue = device.HH !== undefined && device.HH !== null ? device.HH : deviceData[deviceName].hhValue;
-                        deviceData[deviceName].hValue = device.H !== undefined && device.H !== null ? device.H : deviceData[deviceName].hValue;
-                        deviceData[deviceName].lValue = device.L !== undefined && device.L !== null ? device.L : deviceData[deviceName].lValue;
-                        deviceData[deviceName].llValue = device.LL !== undefined && device.LL !== null ? device.LL : deviceData[deviceName].llValue;
+                        deviceData[deviceName].minRange = device.qty_min !== undefined ? device.qty_min : deviceData[deviceName].minRange;
+                        deviceData[deviceName].maxRange = device.qty_max !== undefined ? device.qty_max : deviceData[deviceName].maxRange;
+                        deviceData[deviceName].hhValue = device.HH !== undefined ? device.HH : deviceData[deviceName].hhValue;
+                        deviceData[deviceName].hValue = device.H !== undefined ? device.H : deviceData[deviceName].hValue;
+                        deviceData[deviceName].lValue = device.L !== undefined ? device.L : deviceData[deviceName].lValue;
+                        deviceData[deviceName].llValue = device.LL !== undefined ? device.LL : deviceData[deviceName].llValue;
                         deviceData[deviceName].type = device.type !== undefined && device.type !== null ? device.type : deviceData[deviceName].type;
-                        deviceData[deviceName].factory = device.factory !== undefined && device.factory !== null ? device.factory : deviceData[deviceName].factory;
-                        deviceData[deviceName].level = device.level !== undefined && device.level !== null ? device.level : deviceData[deviceName].level;
-                        deviceData[deviceName].is_major_hazard = device.is_major_hazard !== undefined && device.is_major_hazard !== null ? device.is_major_hazard : deviceData[deviceName].is_major_hazard;
-                        deviceData[deviceName].is_sis = device.is_sis !== undefined && device.is_sis !== null ? device.is_sis : deviceData[deviceName].is_sis;
+                        deviceData[deviceName].factory = device.factory !== undefined ? device.factory : deviceData[deviceName].factory;
+                        deviceData[deviceName].level = device.level !== undefined ? device.level : deviceData[deviceName].level;
+                        deviceData[deviceName].is_major_hazard = device.is_major_hazard !== undefined ? device.is_major_hazard : deviceData[deviceName].is_major_hazard;
+                        deviceData[deviceName].is_sis = device.is_sis !== undefined ? device.is_sis : deviceData[deviceName].is_sis;
                     }
                 }
             });
