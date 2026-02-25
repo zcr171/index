@@ -34,6 +34,8 @@ app.get('/', (req, res) => {
 // 初始化WebSocket服务器
 initWebSocketServer(server);
 
+
+
 // 启动服务器
 async function startServer() {
   try {

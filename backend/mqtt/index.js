@@ -1,9 +1,9 @@
 const mqtt = require('mqtt');
 const { MQTT_CONFIG } = require('../config');
-const { sendToUser, userDeviceCache } = require('../websocket');
+const { userDeviceCache, userMqttClients } = require('../cache');
+const { sendToUser } = require('../utils');
 
-// 用户MQTT客户端缓存
-const userMqttClients = new Map();
+
 
 // 初始化用户MQTT客户端
 function initMQTTClient(userId, topics) {
@@ -102,6 +102,5 @@ function closeMQTTClient(userId) {
 
 module.exports = {
   initMQTTClient,
-  closeMQTTClient,
-  userMqttClients
+  closeMQTTClient
 };

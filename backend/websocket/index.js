@@ -1,12 +1,9 @@
 const WebSocket = require('ws');
 const { getUserById, getUserDevices } = require('../db');
 const { parseFactoryLevel, factoriesToTopics } = require('../utils');
-const { initMQTTClient, userMqttClients } = require('../mqtt');
+const { initMQTTClient } = require('../mqtt');
+const { connectedClients, userInfoCache, userDeviceCache, userMqttClients } = require('../cache');
 
-// 全局缓存
-const connectedClients = new Map();
-const userInfoCache = new Map();
-const userDeviceCache = new Map();
 
 let wss = null;
 
@@ -126,26 +123,7 @@ function initWebSocketServer(server) {
   return wss;
 }
 
-// 向指定用户发送WebSocket消息
-function sendToUser(userId, message) {
-  const client = connectedClients.get(userId);
-  if (client && client.readyState === WebSocket.OPEN) {
-    try {
-      const messageStr = JSON.stringify(message);
-      client.send(messageStr);
-      console.log(`已向用户 ${userId} 发送WebSocket消息，长度: ${messageStr.length} 类型: ${message.type}`);
-    } catch (error) {
-      console.error('发送WebSocket消息失败:', error);
-    }
-  } else {
-    console.log(`用户 ${userId} 没有在线的WebSocket连接，消息未发送`);
-  }
-}
-
 module.exports = {
-  initWebSocketServer,
-  sendToUser,
-  connectedClients,
-  userInfoCache,
-  userDeviceCache
+  initWebSocketServer
 };
+

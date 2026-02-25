@@ -4,6 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>企业管理与维护网</title>
+    <script>
+        // 登录状态检查（在页面渲染前执行，避免闪现主页）
+        let token = null;
+        try {
+            // 尝试获取token，捕获可能的错误
+            token = localStorage.getItem('token');
+        } catch (error) {
+            console.log('localStorage访问被阻止，视为未登录');
+            token = null;
+        }
+        if (!token) {
+            // 未登录，立即重定向到登录页面，不渲染后续内容
+            window.location.href = '/src/pages/login.html';
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script src="https://cdn.bootcdn.net/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
@@ -39,14 +54,6 @@
             font-size: 0.75rem !important;
         }
     </style>
-    <script>
-        // 登录状态检查（在页面渲染前执行，避免闪现主页）
-        const token = localStorage.getItem('token');
-        if (!token) {
-            // 未登录，立即重定向到登录页面，不渲染后续内容
-            window.location.href = '/src/pages/login.html';
-        }
-    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -1092,14 +1099,18 @@
                 <!-- 资料中心页面 start -->
                 <div id="db-laws" class="page-content hidden">
                     <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">法律法规</h2>
                         <div class="card mb-4">
                             <div class="p-4">
-                                <div class="flex space-x-2">
-                                    <input type="text" id="law-search" placeholder="搜索法规名称或发布文号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
-                                    <button onclick="searchLaws()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                        <i class="fa fa-search mr-1"></i> 搜索
-                                    </button>
+                                <div class="relative">
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="law-search" placeholder="搜索法规名称或发布文号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
+                                        <button onclick="queryLaw()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 查询
+                                        </button>
+                                    </div>
+                                    <!-- 搜索下拉列表 -->
+                                    <div id="law-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1129,12 +1140,58 @@
                 </div>
                 <div id="db-standards" class="page-content hidden">
                     <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">标准规范</h2>
+                        <div class="card mb-4">
+                            <div class="p-4">
+                                <div class="relative">
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="standard-search" placeholder="搜索标准名称或编号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
+                                        <!-- 搜索下拉列表 -->
+                                        <div id="standard-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
+                                        </div>
+                                        <button onclick="queryStandard()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 查询
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- 分类卡片 -->
+                                <div class="flex flex-wrap gap-2 mt-3">
+                                    <button onclick="filterStandards('all')" class="px-3 py-1 text-xs bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
+                                        全部
+                                    </button>
+                                    <button onclick="filterStandards('gb')" class="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors">
+                                        国标
+                                    </button>
+                                    <button onclick="filterStandards('industry')" class="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors">
+                                        行标
+                                    </button>
+                                    <button onclick="filterStandards('international')" class="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors">
+                                        国际
+                                    </button>
+                                    <button onclick="filterStandards('other')" class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors">
+                                        其他
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="card">
-                            <div class="p-6">
-                                <div class="text-center py-12">
-                                    <i class="fa fa-book text-4xl text-gray-400 mb-4"></i>
-                                    <p class="text-gray-500">标准规范内容将在此显示</p>
+                            <div class="p-4">
+                                <div id="standard-list-container">
+                                    <div class="text-center py-12" id="no-standards-message">
+                                        <i class="fa fa-book text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-500">无相关数据</p>
+                                    </div>
+                                    <table id="standard-list" class="w-full text-sm text-left text-gray-700 hidden">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3">标准名称</th>
+                                                <th scope="col" class="px-6 py-3">标准类型</th>
+                                                <th scope="col" class="px-6 py-3">标准编号</th>
+                                                <th scope="col" class="px-6 py-3">发布日期</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -1142,12 +1199,40 @@
                 </div>
                 <div id="db-rules" class="page-content hidden">
                     <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">企业制度</h2>
+                        <div class="card mb-4">
+                            <div class="p-4">
+                                <div class="relative">
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="rule-search" placeholder="搜索制度名称或编号..." autocomplete="off" class="flex-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent p-2">
+                                        <!-- 搜索下拉列表 -->
+                                        <div id="rule-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto hidden">
+                                        </div>
+                                        <button onclick="queryRule()" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                            <i class="fa fa-search mr-1"></i> 查询
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="card">
-                            <div class="p-6">
-                                <div class="text-center py-12">
-                                    <i class="fa fa-file-text text-4xl text-gray-400 mb-4"></i>
-                                    <p class="text-gray-500">企业制度内容将在此显示</p>
+                            <div class="p-4">
+                                <div id="rule-list-container">
+                                    <div class="text-center py-12" id="no-rules-message">
+                                        <i class="fa fa-file-text text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-500">无相关数据</p>
+                                    </div>
+                                    <table id="rule-list" class="w-full text-sm text-left text-gray-700 hidden">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3">制度名称</th>
+                                                <th scope="col" class="px-6 py-3">制度类型</th>
+                                                <th scope="col" class="px-6 py-3">发布文号</th>
+                                                <th scope="col" class="px-6 py-3">发布日期</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -1155,7 +1240,6 @@
                 </div>
                 <div id="db-drawings" class="page-content hidden">
                     <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">图纸中心</h2>
                         <div class="card">
                             <div class="p-6">
                                 <div class="text-center py-12">
@@ -1168,7 +1252,6 @@
                 </div>
                 <div id="db-maintain" class="page-content hidden">
                     <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">学习中心</h2>
                         <div class="card">
                             <div class="p-6">
                                 <div class="text-center py-12">
@@ -1521,15 +1604,26 @@
             });
         });
         
-        // 法律法规搜索函数
+        // 搜索防抖计时器
+        let searchTimeout = null;
+        // 选中的法规数据
+        let selectedLaw = null;
+
+        // 法律法规搜索函数（显示下拉列表）
         async function searchLaws() {
             const searchInput = document.getElementById('law-search');
             const keyword = searchInput ? searchInput.value.trim() : '';
-            const container = document.getElementById('law-list-container');
+            const resultsContainer = document.getElementById('law-search-results');
             
-            // 显示加载状态
-            if (container) {
-                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">搜索中...</p></div>';
+            // 最小搜索长度限制：至少2个汉字
+            if (keyword.length < 2 && keyword.length > 0) {
+                resultsContainer.classList.add('hidden');
+                return; // 不足2个汉字不搜索
+            }
+            
+            if (keyword.length === 0) {
+                resultsContainer.classList.add('hidden');
+                return;
             }
             
             try {
@@ -1548,19 +1642,151 @@
                 }
                 
                 const data = await response.json();
+                const laws = data.success ? data.data : [];
                 
-                // 渲染结果
-                renderLawList(data.success ? data.data : []);
+                // 显示下拉列表
+                if (laws.length > 0) {
+                    renderSearchResults(laws);
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
             } catch (error) {
                 console.error('搜索法规失败:', error);
+                resultsContainer.classList.add('hidden');
+            }
+        }
+
+        // 渲染搜索下拉列表
+        function renderSearchResults(laws) {
+            const resultsContainer = document.getElementById('law-search-results');
+            if (!resultsContainer) return;
+            
+            // 清空之前的结果
+            resultsContainer.innerHTML = '';
+            
+            // 添加搜索结果
+            laws.forEach(law => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'px-4 py-2 hover:bg-gray-100 cursor-pointer';
+                resultItem.innerHTML = `
+                    <div class="font-medium">${law.law_title}</div>
+                    <div class="text-xs text-gray-500">${law.law_type} | ${law.issuing_no} | ${law.implement_date}</div>
+                `;
                 
-                // 显示错误信息
+                // 添加点击事件
+                resultItem.addEventListener('click', () => {
+                    selectLaw(law);
+                });
+                
+                resultsContainer.appendChild(resultItem);
+            });
+            
+            // 显示下拉列表
+            resultsContainer.classList.remove('hidden');
+        }
+
+        // 选择法规
+        function selectLaw(law) {
+            const searchInput = document.getElementById('law-search');
+            const resultsContainer = document.getElementById('law-search-results');
+            
+            if (searchInput) {
+                searchInput.value = law.law_title;
+            }
+            
+            // 存储选中的法规
+            selectedLaw = law;
+            
+            // 隐藏下拉列表
+            resultsContainer.classList.add('hidden');
+        }
+
+        // 查询法规（打开PDF）
+        function queryLaw() {
+            if (selectedLaw) {
+                openLawPDF(selectedLaw);
+            } else {
+                // 如果没有选择，提示用户
+                alert('请先搜索并选择一个法规');
+            }
+        }
+
+        // 搜索输入防抖处理
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('law-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    // 清除之前的定时器
+                    if (searchTimeout) {
+                        clearTimeout(searchTimeout);
+                    }
+                    
+                    // 设置新的定时器
+                    searchTimeout = setTimeout(() => {
+                        const keyword = this.value.trim();
+                        // 只有输入至少2个汉字才搜索
+                        if (keyword.length >= 2) {
+                            searchLaws();
+                        } else {
+                            // 清空搜索框时隐藏下拉列表
+                            const resultsContainer = document.getElementById('law-search-results');
+                            if (resultsContainer) {
+                                resultsContainer.classList.add('hidden');
+                            }
+                            selectedLaw = null;
+                        }
+                    }, 300); // 300ms防抖延迟
+                });
+                
+                // 点击页面其他地方隐藏下拉列表
+                document.addEventListener('click', function(e) {
+                    const searchContainer = document.querySelector('.relative');
+                    const resultsContainer = document.getElementById('law-search-results');
+                    
+                    if (searchContainer && resultsContainer && !searchContainer.contains(e.target)) {
+                        resultsContainer.classList.add('hidden');
+                    }
+                });
+            }
+        });
+        
+        // 加载完整法规列表
+        async function loadLawList() {
+            const container = document.getElementById('law-list-container');
+            
+            if (container) {
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">加载中...</p></div>';
+            }
+            
+            try {
+                // 调用API获取完整法规列表
+                const response = await fetch(`${API_BASE_URL}/laws/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword: '' }) // 空关键词获取完整列表
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                const laws = data.success ? data.data : [];
+                
+                // 渲染法规列表
+                renderLawList(laws);
+            } catch (error) {
+                console.error('加载法规列表失败:', error);
+                
                 if (container) {
-                    container.innerHTML = '<div class="text-center py-12"><i class="fa fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-red-500">搜索失败，请稍后重试</p></div>';
+                    container.innerHTML = '<div class="text-center py-12"><i class="fa fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-red-500">加载失败，请稍后重试</p></div>';
                 }
             }
         }
-        
+
         // 渲染法规列表
         function renderLawList(laws) {
             const container = document.getElementById('law-list-container');
@@ -1608,21 +1834,716 @@
                 });
             }
         }
+
+        // 页面加载时加载法规列表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查当前是否在法律法规页面
+            const lawsPage = document.getElementById('db-laws');
+            if (lawsPage && !lawsPage.classList.contains('hidden')) {
+                loadLawList();
+            }
+            
+            // 监听菜单点击，当切换到法律法规页面时加载列表
+            document.querySelectorAll('.menu-item[data-target="db-laws"]').forEach(item => {
+                item.addEventListener('click', function() {
+                    // 延迟加载，确保页面已显示
+                    setTimeout(loadLawList, 100);
+                });
+            });
+            
+            // 检查当前是否在标准规范页面
+            const standardsPage = document.getElementById('db-standards');
+            if (standardsPage && !standardsPage.classList.contains('hidden')) {
+                loadStandardList();
+            }
+            
+            // 监听菜单点击，当切换到标准规范页面时加载列表
+            document.querySelectorAll('.menu-item[data-target="db-standards"]').forEach(item => {
+                item.addEventListener('click', function() {
+                    // 延迟加载，确保页面已显示
+                    setTimeout(loadStandardList, 100);
+                });
+            });
+            
+            // 标准规范搜索回车事件
+            document.getElementById('standard-search')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchStandards();
+            });
+            
+            // 企业制度搜索回车事件
+            document.getElementById('rule-search')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchRules();
+            });
+        });
+        
+        // 标准规范搜索防抖计时器
+        let standardSearchTimeout = null;
+        // 选中的标准数据
+        let selectedStandard = null;
+        // 原始标准列表（用于筛选）
+        let originalStandards = [];
+
+        // 标准规范搜索函数（显示下拉列表）
+        async function searchStandards() {
+            const searchInput = document.getElementById('standard-search');
+            const keyword = searchInput ? searchInput.value.trim() : '';
+            const resultsContainer = document.getElementById('standard-search-results');
+            
+            // 最小搜索长度限制：至少2个汉字
+            if (keyword.length < 2 && keyword.length > 0) {
+                resultsContainer.classList.add('hidden');
+                return; // 不足2个汉字不搜索
+            }
+            
+            if (keyword.length === 0) {
+                resultsContainer.classList.add('hidden');
+                return;
+            }
+            
+            try {
+                // 调用API获取数据
+                const response = await fetch(`${API_BASE_URL}/standards/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                const standards = data.success ? data.data : [];
+                
+                // 显示下拉列表
+                if (standards.length > 0) {
+                    renderStandardSearchResults(standards);
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('搜索标准失败:', error);
+                resultsContainer.classList.add('hidden');
+            }
+        }
+
+        // 渲染标准搜索下拉列表
+        function renderStandardSearchResults(standards) {
+            const resultsContainer = document.getElementById('standard-search-results');
+            if (!resultsContainer) return;
+            
+            // 清空之前的结果
+            resultsContainer.innerHTML = '';
+            
+            // 添加搜索结果
+                standards.forEach(standard => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'px-4 py-2 hover:bg-gray-100 cursor-pointer';
+                    resultItem.innerHTML = `
+                        <div class="font-medium">${standard.doc_title}</div>
+                        <div class="text-xs text-gray-500">${standard.doc_type} | ${standard.issuing_no} | ${standard.release_date}</div>
+                    `;
+                    
+                    // 添加点击事件
+                    resultItem.addEventListener('click', () => {
+                        selectStandard(standard);
+                    });
+                    
+                    resultsContainer.appendChild(resultItem);
+                });
+            
+            // 显示下拉列表
+            resultsContainer.classList.remove('hidden');
+        }
+
+        // 选择标准
+        function selectStandard(standard) {
+            const searchInput = document.getElementById('standard-search');
+            const resultsContainer = document.getElementById('standard-search-results');
+            
+            if (searchInput) {
+                searchInput.value = standard.doc_title;
+            }
+            
+            // 存储选中的标准
+            selectedStandard = standard;
+            
+            // 隐藏下拉列表
+            resultsContainer.classList.add('hidden');
+        }
+
+        // 查询标准（打开PDF）
+        function queryStandard() {
+            if (selectedStandard) {
+                openStandardPDF(selectedStandard);
+            } else {
+                // 如果没有选择，提示用户
+                alert('请先搜索并选择一个标准');
+            }
+        }
+
+        // 加载完整标准列表
+        async function loadStandardList() {
+            const container = document.getElementById('standard-list-container');
+            
+            if (container) {
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">加载中...</p></div>';
+            }
+            
+            try {
+                // 调用API获取完整标准列表
+                const response = await fetch(`${API_BASE_URL}/standards/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword: '' }) // 空关键词获取完整列表
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                const standards = data.success ? data.data : [];
+                
+                // 保存原始列表
+                originalStandards = standards;
+                
+                // 按标准编号的字母顺序排序
+                standards.sort((a, b) => {
+                    const issuingNoA = a.issuing_no || '';
+                    const issuingNoB = b.issuing_no || '';
+                    return issuingNoA.localeCompare(issuingNoB);
+                });
+                
+                // 渲染标准列表
+                renderStandardList(standards);
+            } catch (error) {
+                console.error('加载标准列表失败:', error);
+                
+                if (container) {
+                    container.innerHTML = '<div class="text-center py-12"><i class="fa fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-red-500">加载失败，请稍后重试</p></div>';
+                }
+            }
+        }
+        
+        // 筛选标准
+        function filterStandards(filterType) {
+            if (originalStandards.length === 0) {
+                // 如果原始列表为空，先加载
+                loadStandardList();
+                return;
+            }
+            
+            let filteredStandards = originalStandards;
+            
+            switch (filterType) {
+                case 'gb':
+                    // 国标：包括GB、GBT、JJF、JJG等国家级标准
+                    filteredStandards = originalStandards.filter(standard => {
+                        const issuingNo = standard.issuing_no || '';
+                        return issuingNo.startsWith('GB') || issuingNo.startsWith('JJF') || issuingNo.startsWith('JJG');
+                    });
+                    break;
+                case 'industry':
+                    // 行标：包括SH、HG、AQ等行业标准
+                    filteredStandards = originalStandards.filter(standard => {
+                        const issuingNo = standard.issuing_no || '';
+                        return issuingNo.startsWith('SH') || issuingNo.startsWith('HG') || issuingNo.startsWith('AQ');
+                    });
+                    break;
+                case 'international':
+                    // 国际标准：包括ISO、IEC等
+                    filteredStandards = originalStandards.filter(standard => {
+                        const issuingNo = standard.issuing_no || '';
+                        return issuingNo.startsWith('ISO') || issuingNo.startsWith('IEC');
+                    });
+                    break;
+                case 'other':
+                    // 其他标准：不属于以上分类的
+                    filteredStandards = originalStandards.filter(standard => {
+                        const issuingNo = standard.issuing_no || '';
+                        return !issuingNo.startsWith('GB') && !issuingNo.startsWith('JJF') && !issuingNo.startsWith('JJG') && 
+                               !issuingNo.startsWith('SH') && !issuingNo.startsWith('HG') && !issuingNo.startsWith('AQ') && 
+                               !issuingNo.startsWith('ISO') && !issuingNo.startsWith('IEC');
+                    });
+                    break;
+                case 'all':
+                default:
+                    // 全部标准
+                    filteredStandards = originalStandards;
+                    break;
+            }
+            
+            // 渲染筛选后的列表
+            renderStandardList(filteredStandards);
+        }
+
+        // 渲染标准列表
+        function renderStandardList(standards) {
+            const container = document.getElementById('standard-list-container');
+            
+            if (!container) return;
+            
+            if (standards.length === 0) {
+                // 显示无数据信息
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-book text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">无相关数据</p></div>';
+            } else {
+                // 创建表格结构
+                const tableHTML = `
+                    <table id="standard-list" class="w-full text-sm text-left text-gray-700">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">标准名称</th>
+                                <th scope="col" class="px-6 py-3">标准类型</th>
+                                <th scope="col" class="px-6 py-3">标准编号</th>
+                                <th scope="col" class="px-6 py-3">发布日期</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${standards.map(standard => `
+                                <tr class="hover:bg-gray-50 cursor-pointer" data-standard='${JSON.stringify(standard)}'>
+                                    <td class="px-6 py-4">${standard.doc_title}</td>
+                                    <td class="px-6 py-4">${standard.doc_type}</td>
+                                    <td class="px-6 py-4">${standard.issuing_no}</td>
+                                    <td class="px-6 py-4">${standard.release_date}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                // 更新容器内容
+                container.innerHTML = tableHTML;
+                
+                // 添加点击事件监听器
+                const rows = container.querySelectorAll('tr[data-standard]');
+                rows.forEach(row => {
+                    row.addEventListener('click', () => {
+                        const standardData = JSON.parse(row.dataset.standard);
+                        openStandardPDF(standardData);
+                    });
+                });
+            }
+        }
+
+        // 打开标准PDF
+        function openStandardPDF(standard) {
+            try {
+                // 确保standard对象存在
+                if (!standard) {
+                    console.error('标准数据不存在');
+                    alert('标准数据不存在');
+                    return;
+                }
+                
+                // 获取文件名
+                const fileName = standard.file_name || '';
+                if (!fileName) {
+                    console.error('文件名不存在');
+                    alert('文件名不存在');
+                    return;
+                }
+                
+                // 构造标准路径
+                const pdfPath = '/static/material_center/standard_docs/' + fileName;
+                console.log('PDF路径:', pdfPath);
+                
+                // 使用<a>标签打开PDF
+                const link = document.createElement('a');
+                link.href = pdfPath;
+                link.target = '_blank';
+                link.textContent = '打开PDF';
+                
+                // 触发点击
+                link.click();
+                
+                // 清理
+                link.remove();
+                
+            } catch (error) {
+                console.error('打开PDF失败:', error);
+                alert('打开PDF失败，请检查文件路径是否正确');
+            }
+        }
+
+        // 标准规范搜索输入防抖处理
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('standard-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    // 清除之前的定时器
+                    if (standardSearchTimeout) {
+                        clearTimeout(standardSearchTimeout);
+                    }
+                    
+                    // 设置新的定时器
+                    standardSearchTimeout = setTimeout(() => {
+                        const keyword = this.value.trim();
+                        // 只有输入至少2个汉字才搜索
+                        if (keyword.length >= 2) {
+                            searchStandards();
+                        } else {
+                            // 清空搜索框时隐藏下拉列表
+                            const resultsContainer = document.getElementById('standard-search-results');
+                            if (resultsContainer) {
+                                resultsContainer.classList.add('hidden');
+                            }
+                            selectedStandard = null;
+                        }
+                    }, 300); // 300ms防抖延迟
+                });
+                
+                // 点击页面其他地方隐藏下拉列表
+                document.addEventListener('click', function(e) {
+                    const searchContainer = document.querySelector('#db-standards .relative');
+                    const resultsContainer = document.getElementById('standard-search-results');
+                    
+                    if (searchContainer && resultsContainer && !searchContainer.contains(e.target)) {
+                        resultsContainer.classList.add('hidden');
+                    }
+                });
+            }
+        });
+        
+        // 企业制度搜索防抖计时器
+        let ruleSearchTimeout = null;
+        // 选中的制度数据
+        let selectedRule = null;
+        // 原始制度列表（用于筛选）
+        let originalRules = [];
+
+        // 企业制度搜索函数（显示下拉列表）
+        async function searchRules() {
+            const searchInput = document.getElementById('rule-search');
+            const keyword = searchInput ? searchInput.value.trim() : '';
+            const resultsContainer = document.getElementById('rule-search-results');
+            
+            // 最小搜索长度限制：至少2个汉字
+            if (keyword.length < 2 && keyword.length > 0) {
+                resultsContainer.classList.add('hidden');
+                return; // 不足2个汉字不搜索
+            }
+            
+            if (keyword.length === 0) {
+                resultsContainer.classList.add('hidden');
+                return;
+            }
+            
+            try {
+                // 调用API获取数据
+                const response = await fetch(`${API_BASE_URL}/policies/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                const rules = data.success ? data.data : [];
+                
+                // 显示下拉列表
+                if (rules.length > 0) {
+                    renderRuleSearchResults(rules);
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('搜索制度失败:', error);
+                resultsContainer.classList.add('hidden');
+            }
+        }
+
+        // 渲染制度搜索下拉列表
+        function renderRuleSearchResults(rules) {
+            const resultsContainer = document.getElementById('rule-search-results');
+            if (!resultsContainer) return;
+            
+            // 清空之前的结果
+            resultsContainer.innerHTML = '';
+            
+            // 添加搜索结果
+            rules.forEach(rule => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'px-4 py-2 hover:bg-gray-100 cursor-pointer';
+                resultItem.innerHTML = `
+                    <div class="font-medium">${rule.policy_name}</div>
+                    <div class="text-xs text-gray-500">${rule.policy_type} | ${rule.policy_code} | ${rule.publish_time}</div>
+                `;
+                
+                // 添加点击事件
+                resultItem.addEventListener('click', () => {
+                    selectRule(rule);
+                });
+                
+                resultsContainer.appendChild(resultItem);
+            });
+            
+            // 显示下拉列表
+            resultsContainer.classList.remove('hidden');
+        }
+
+        // 选择制度
+        function selectRule(rule) {
+            const searchInput = document.getElementById('rule-search');
+            const resultsContainer = document.getElementById('rule-search-results');
+            
+            if (searchInput) {
+                searchInput.value = rule.policy_name;
+            }
+            
+            // 存储选中的制度
+            selectedRule = rule;
+            
+            // 隐藏下拉列表
+            resultsContainer.classList.add('hidden');
+        }
+
+        // 查询制度（打开PDF）
+        function queryRule() {
+            if (selectedRule) {
+                openRulePDF(selectedRule);
+            } else {
+                // 如果没有选择，提示用户
+                alert('请先搜索并选择一个制度');
+            }
+        }
+
+        // 加载完整制度列表
+        async function loadRuleList() {
+            const container = document.getElementById('rule-list-container');
+            
+            if (container) {
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">加载中...</p></div>';
+            }
+            
+            try {
+                // 调用API获取完整制度列表
+                const response = await fetch(`${API_BASE_URL}/policies/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ keyword: '' }) // 空关键词获取完整列表
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                const rules = data.success ? data.data : [];
+                
+                // 保存原始列表
+                originalRules = rules;
+                
+                // 按制度编号的字母顺序排序
+                rules.sort((a, b) => {
+                    const policyCodeA = a.policy_code || '';
+                    const policyCodeB = b.policy_code || '';
+                    return policyCodeA.localeCompare(policyCodeB);
+                });
+                
+                // 渲染制度列表
+                renderRuleList(rules);
+            } catch (error) {
+                console.error('加载制度列表失败:', error);
+                
+                if (container) {
+                    container.innerHTML = '<div class="text-center py-12"><i class="fa fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-red-500">加载失败，请稍后重试</p></div>';
+                }
+            }
+        }
+
+        // 渲染制度列表
+        function renderRuleList(rules) {
+            const container = document.getElementById('rule-list-container');
+            
+            if (!container) return;
+            
+            if (rules.length === 0) {
+                // 显示无数据信息
+                container.innerHTML = '<div class="text-center py-12"><i class="fa fa-file-text text-4xl text-gray-400 mb-4"></i><p class="text-gray-500">无相关数据</p></div>';
+            } else {
+                // 创建表格结构
+                const tableHTML = `
+                    <table id="rule-list" class="w-full text-sm text-left text-gray-700">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">制度名称</th>
+                                <th scope="col" class="px-6 py-3">制度类型</th>
+                                <th scope="col" class="px-6 py-3">制度编号</th>
+                                <th scope="col" class="px-6 py-3">发布日期</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rules.map(rule => `
+                                <tr class="hover:bg-gray-50 cursor-pointer" data-rule='${JSON.stringify(rule)}'>
+                                    <td class="px-6 py-4">${rule.policy_name}</td>
+                                    <td class="px-6 py-4">${rule.policy_type}</td>
+                                    <td class="px-6 py-4">${rule.policy_code}</td>
+                                    <td class="px-6 py-4">${rule.publish_time}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                // 更新容器内容
+                container.innerHTML = tableHTML;
+                
+                // 添加点击事件监听器
+                const rows = container.querySelectorAll('tr[data-rule]');
+                rows.forEach(row => {
+                    row.addEventListener('click', () => {
+                        const ruleData = JSON.parse(row.dataset.rule);
+                        openRulePDF(ruleData);
+                    });
+                });
+            }
+        }
+
+        // 打开制度PDF
+        function openRulePDF(rule) {
+            try {
+                // 确保rule对象存在
+                if (!rule) {
+                    console.error('制度数据不存在');
+                    alert('制度数据不存在');
+                    return;
+                }
+                
+                // 由于表中没有file_name字段，使用制度编号作为文件名
+                const fileName = rule.policy_code ? rule.policy_code.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf' : '';
+                if (!fileName) {
+                    console.error('文件名不存在');
+                    alert('文件名不存在');
+                    return;
+                }
+                
+                // 构造标准路径
+                const pdfPath = '/static/material_center/rules_docs/' + fileName;
+                console.log('PDF路径:', pdfPath);
+                
+                // 使用<a>标签打开PDF
+                const link = document.createElement('a');
+                link.href = pdfPath;
+                link.target = '_blank';
+                link.textContent = '打开PDF';
+                
+                // 触发点击
+                link.click();
+                
+                // 清理
+                link.remove();
+                
+            } catch (error) {
+                console.error('打开PDF失败:', error);
+                alert('打开PDF失败，请检查文件路径是否正确');
+            }
+        }
+
+        // 企业制度搜索输入防抖处理
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('rule-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    // 清除之前的定时器
+                    if (ruleSearchTimeout) {
+                        clearTimeout(ruleSearchTimeout);
+                    }
+                    
+                    // 设置新的定时器
+                    ruleSearchTimeout = setTimeout(() => {
+                        const keyword = this.value.trim();
+                        // 只有输入至少2个汉字才搜索
+                        if (keyword.length >= 2) {
+                            searchRules();
+                        } else {
+                            // 清空搜索框时隐藏下拉列表
+                            const resultsContainer = document.getElementById('rule-search-results');
+                            if (resultsContainer) {
+                                resultsContainer.classList.add('hidden');
+                            }
+                        }
+                    }, 300); // 300ms防抖
+                });
+            }
+            
+            // 点击页面其他地方关闭搜索下拉列表
+            document.addEventListener('click', (e) => {
+                const searchContainer = document.querySelector('#db-rules .relative');
+                const resultsContainer = document.getElementById('rule-search-results');
+                
+                if (searchContainer && resultsContainer && !searchContainer.contains(e.target)) {
+                    resultsContainer.classList.add('hidden');
+                }
+            });
+            
+            // 检查当前是否在企业制度页面
+            const rulesPage = document.getElementById('db-rules');
+            if (rulesPage && !rulesPage.classList.contains('hidden')) {
+                loadRuleList();
+            }
+            
+            // 监听菜单点击，当切换到企业制度页面时加载列表
+            document.querySelectorAll('.menu-item[data-target="db-rules"]').forEach(item => {
+                item.addEventListener('click', function() {
+                    // 延迟加载，确保页面已显示
+                    setTimeout(loadRuleList, 100);
+                });
+            });
+        });
         
         // 打开法规PDF
         function openLawPDF(law) {
-            // 拼接PDF路径
-            const pdfPath = law.file_path + law.file_name;
-            
-            // 新开标签页打开PDF
-            const newWindow = window.open(pdfPath, '_blank');
-            
-            // 设置新标签页标题
-            if (newWindow) {
-                // 延迟设置标题，确保页面已加载
-                setTimeout(() => {
-                    newWindow.document.title = law.law_title;
-                }, 100);
+            try {
+                // 确保law对象存在
+                if (!law) {
+                    console.error('法规数据不存在');
+                    alert('法规数据不存在');
+                    return;
+                }
+                
+                // 获取文件名
+                const fileName = law.file_name || '';
+                if (!fileName) {
+                    console.error('文件名不存在');
+                    alert('文件名不存在');
+                    return;
+                }
+                
+                // 构造标准路径
+                const pdfPath = '/static/material_center/laws_docs/' + fileName;
+                console.log('PDF路径:', pdfPath);
+                
+                // 使用<a>标签打开PDF
+                const link = document.createElement('a');
+                link.href = pdfPath;
+                link.target = '_blank';
+                link.textContent = '打开PDF';
+                
+                // 触发点击
+                link.click();
+                
+                // 清理
+                link.remove();
+                
+            } catch (error) {
+                console.error('打开PDF失败:', error);
+                alert('打开PDF失败，请检查文件路径是否正确');
             }
         }
         

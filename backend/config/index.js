@@ -2,17 +2,17 @@ require('dotenv').config();
 
 module.exports = {
   // 服务配置
-  PORT: process.env.PORT || 3003,
+  PORT: process.env.PORT || 3004,
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   SUPER_ADMIN_LEVEL: 99,
 
   // MySQL配置
   DB_CONFIG: {
-    host: process.env.MYSQL_HOST || 'localhost',
-    port: process.env.MYSQL_PORT || 3306,
-    user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || '',
-    database: process.env.MYSQL_DATABASE || 'industrial',
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'scada_web',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0

@@ -1093,6 +1093,35 @@ app.post('/api/laws/search', authenticateToken, async (req, res) => {
   }
 });
 
+// 标准规范搜索接口
+app.post('/api/standards/search', authenticateToken, async (req, res) => {
+  try {
+    const { keyword } = req.body;
+    
+    let query = `
+      SELECT doc_title, doc_type, issuing_no, release_date, file_path, file_name 
+      FROM standard_docs 
+      WHERE status = 1
+    `;
+    let params = [];
+    
+    if (keyword) {
+      // 使用LOWER()函数实现大小写不敏感的搜索
+      query += ` AND (LOWER(doc_title) LIKE LOWER(?) OR LOWER(issuing_no) LIKE LOWER(?))`;
+      params = [`%${keyword}%`, `%${keyword}%`];
+    }
+    
+    // 执行查询
+    const [rows] = await pool.execute(query, params);
+    
+    // 返回结果
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('搜索标准规范失败:', error);
+    res.json({ success: false, message: '搜索失败，请稍后重试' });
+  }
+});
+
 // 管理员：获取所有设备列表
 app.get('/api/admin/devices', authenticateToken, adminAuth, async (req, res) => {
   try {

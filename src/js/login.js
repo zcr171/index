@@ -93,6 +93,11 @@ function initLoginFunctionality() {
                                 localStorage.setItem('loginUserRealname', data.user.realname || data.user.username);
                                 // 存储用户权限信息
                                 localStorage.setItem('factoryLevel', data.user.factory_level || '0');
+
+
+
+
+
                                 
                                 // 登录成功后跳转到主页面
                                 console.log('登录成功，跳转到主页面');
